@@ -31,6 +31,8 @@ let services = Store.get(KEYS.services);
 let professionals = Store.get(KEYS.professionals);
 
 let editingClientId = null;
+let editingServiceId = null;
+let editingProfessionalId = null;
 
 const $ = id => document.getElementById(id);
 
@@ -232,6 +234,7 @@ $("clientsList").addEventListener("click", event => {
 });
 
 
+
 /* =====================================
    SERVIÇOS
 ===================================== */
@@ -239,15 +242,33 @@ $("clientsList").addEventListener("click", event => {
 $("serviceForm").addEventListener("submit", event => {
     event.preventDefault();
 
-    services.push({
-        id: createId(),
-        name: $("serviceName").value.trim(),
-        duration: Number($("serviceDuration").value),
-        price: Number($("servicePrice").value)
-    });
+    const name = $("serviceName").value.trim();
+    const duration = Number($("serviceDuration").value);
+    const price = Number($("servicePrice").value);
+
+    if (!name) return;
+
+    if (editingServiceId) {
+        services = services.map(service =>
+            service.id === editingServiceId
+                ? { ...service, name, duration, price }
+                : service
+        );
+
+        editingServiceId = null;
+    } else {
+        services.push({
+            id: createId(),
+            name,
+            duration,
+            price
+        });
+    }
 
     saveAll();
     $("serviceForm").reset();
+    $("serviceForm").querySelector('[type="submit"]').textContent = "Adicionar serviço";
+
     renderServices();
     updateSelects();
     renderDashboard();
@@ -261,24 +282,63 @@ function renderServices() {
                     <strong>${escapeHTML(service.name)}</strong>
                     <small>${service.duration} minutos · ${money(service.price)}</small>
                 </div>
-                <button class="delete-button" data-delete-service="${service.id}">Eliminar</button>
+
+                <div class="appointment-actions">
+                    <button class="secondary-button" data-edit-service="${service.id}">
+                        Editar
+                    </button>
+
+                    <button class="delete-button" data-delete-service="${service.id}">
+                        Excluir
+                    </button>
+                </div>
             </div>
         `).join("")
         : '<div class="empty-state">Ainda não existem serviços.</div>';
 }
 
 $("servicesList").addEventListener("click", event => {
-    const button = event.target.closest("[data-delete-service]");
-    if (!button) return;
+    const editButton = event.target.closest("[data-edit-service]");
+    const deleteButton = event.target.closest("[data-delete-service]");
 
-    if (!confirm("Eliminar este serviço?")) return;
+    if (editButton) {
+        const service = services.find(
+            item => item.id === editButton.dataset.editService
+        );
 
-    services = services.filter(service => service.id !== button.dataset.deleteService);
-    saveAll();
-    renderServices();
-    updateSelects();
-    renderDashboard();
+        if (!service) return;
+
+        editingServiceId = service.id;
+
+        $("serviceName").value = service.name;
+        $("serviceDuration").value = service.duration;
+        $("servicePrice").value = service.price;
+
+        $("serviceForm").querySelector('[type="submit"]').textContent =
+            "Guardar alterações";
+    }
+
+    if (deleteButton) {
+        const id = deleteButton.dataset.deleteService;
+
+        if (!confirm("Tens a certeza de que desejas excluir este serviço?")) return;
+
+        services = services.filter(service => service.id !== id);
+
+        if (editingServiceId === id) {
+            editingServiceId = null;
+            $("serviceForm").reset();
+            $("serviceForm").querySelector('[type="submit"]').textContent =
+                "Adicionar serviço";
+        }
+
+        saveAll();
+        renderServices();
+        updateSelects();
+        renderDashboard();
+    }
 });
+
 
 /* =====================================
    PROFISSIONAIS
@@ -287,23 +347,40 @@ $("servicesList").addEventListener("click", event => {
 $("professionalForm").addEventListener("submit", event => {
     event.preventDefault();
 
+    const name = $("professionalName").value.trim();
     const start = $("professionalStart").value;
     const end = $("professionalEnd").value;
+
+    if (!name) return;
 
     if (start >= end) {
         alert("A hora de fim deve ser posterior à hora de início.");
         return;
     }
 
-    professionals.push({
-        id: createId(),
-        name: $("professionalName").value.trim(),
-        start,
-        end
-    });
+    if (editingProfessionalId) {
+        professionals = professionals.map(professional =>
+            professional.id === editingProfessionalId
+                ? { ...professional, name, start, end }
+                : professional
+        );
+
+        editingProfessionalId = null;
+    } else {
+        professionals.push({
+            id: createId(),
+            name,
+            start,
+            end
+        });
+    }
 
     saveAll();
     $("professionalForm").reset();
+
+    $("professionalForm").querySelector('[type="submit"]').textContent =
+        "Adicionar profissional";
+
     renderProfessionals();
     updateSelects();
     renderDashboard();
@@ -317,26 +394,66 @@ function renderProfessionals() {
                     <strong>${escapeHTML(professional.name)}</strong>
                     <small>Horário: ${professional.start} às ${professional.end}</small>
                 </div>
-                <button class="delete-button" data-delete-professional="${professional.id}">Eliminar</button>
+
+                <div class="appointment-actions">
+                    <button class="secondary-button" data-edit-professional="${professional.id}">
+                        Editar
+                    </button>
+
+                    <button class="delete-button" data-delete-professional="${professional.id}">
+                        Excluir
+                    </button>
+                </div>
             </div>
         `).join("")
         : '<div class="empty-state">Ainda não existem profissionais.</div>';
 }
 
 $("professionalsList").addEventListener("click", event => {
-    const button = event.target.closest("[data-delete-professional]");
-    if (!button) return;
+    const editButton = event.target.closest("[data-edit-professional]");
+    const deleteButton = event.target.closest("[data-delete-professional]");
 
-    if (!confirm("Eliminar esta profissional?")) return;
+    if (editButton) {
+        const professional = professionals.find(
+            item => item.id === editButton.dataset.editProfessional
+        );
 
-    professionals = professionals.filter(
-        professional => professional.id !== button.dataset.deleteProfessional
-    );
+        if (!professional) return;
 
-    saveAll();
-    renderProfessionals();
-    updateSelects();
-    renderDashboard();
+        editingProfessionalId = professional.id;
+
+        $("professionalName").value = professional.name;
+        $("professionalStart").value = professional.start;
+        $("professionalEnd").value = professional.end;
+
+        $("professionalForm").querySelector('[type="submit"]').textContent =
+            "Guardar alterações";
+    }
+
+    if (deleteButton) {
+        const id = deleteButton.dataset.deleteProfessional;
+
+        if (!confirm("Tens a certeza de que desejas excluir esta profissional?")) {
+            return;
+        }
+
+        professionals = professionals.filter(
+            professional => professional.id !== id
+        );
+
+        if (editingProfessionalId === id) {
+            editingProfessionalId = null;
+            $("professionalForm").reset();
+
+            $("professionalForm").querySelector('[type="submit"]').textContent =
+                "Adicionar profissional";
+        }
+
+        saveAll();
+        renderProfessionals();
+        updateSelects();
+        renderDashboard();
+    }
 });
 
 /* =====================================
