@@ -30,6 +30,8 @@ let clients = Store.get(KEYS.clients);
 let services = Store.get(KEYS.services);
 let professionals = Store.get(KEYS.professionals);
 
+let editingClientId = null;
+
 const $ = id => document.getElementById(id);
 
 function saveAll() {
@@ -119,6 +121,7 @@ function renderDashboard() {
         : '<div class="empty-state">Ainda não existem próximos agendamentos.</div>';
 }
 
+
 /* =====================================
    CLIENTES
 ===================================== */
@@ -132,15 +135,27 @@ $("clientForm").addEventListener("submit", event => {
 
     if (!name) return;
 
-    clients.push({
-        id: createId(),
-        name,
-        phone,
-        email
-    });
+    if (editingClientId) {
+        clients = clients.map(client =>
+            client.id === editingClientId
+                ? { ...client, name, phone, email }
+                : client
+        );
+
+        editingClientId = null;
+    } else {
+        clients.push({
+            id: createId(),
+            name,
+            phone,
+            email
+        });
+    }
 
     saveAll();
     $("clientForm").reset();
+    $("clientForm").querySelector('[type="submit"]').textContent = "Adicionar cliente";
+
     renderClients();
     updateSelects();
     renderDashboard();
@@ -154,26 +169,68 @@ function renderClients() {
                     <strong>${escapeHTML(client.name)}</strong>
                     <small>${escapeHTML(client.phone || "Sem telefone")} · ${escapeHTML(client.email || "Sem e-mail")}</small>
                 </div>
-                <button class="delete-button" data-delete-client="${client.id}">Eliminar</button>
+
+                <div class="appointment-actions">
+                    <button class="secondary-button" data-edit-client="${client.id}">
+                        Editar
+                    </button>
+
+                    <button class="delete-button" data-delete-client="${client.id}">
+                        Excluir
+                    </button>
+                </div>
             </div>
         `).join("")
         : '<div class="empty-state">Ainda não existem clientes.</div>';
 }
 
 $("clientsList").addEventListener("click", event => {
-    const button = event.target.closest("[data-delete-client]");
-    if (!button) return;
 
-    const id = button.dataset.deleteClient;
+    const editButton = event.target.closest("[data-edit-client]");
+    const deleteButton = event.target.closest("[data-delete-client]");
 
-    if (!confirm("Eliminar este cliente?")) return;
+    if (editButton) {
+        const client = clients.find(
+            item => item.id === editButton.dataset.editClient
+        );
 
-    clients = clients.filter(client => client.id !== id);
-    saveAll();
-    renderClients();
-    updateSelects();
-    renderDashboard();
+        if (!client) return;
+
+        editingClientId = client.id;
+
+        $("clientName").value = client.name;
+        $("clientPhone").value = client.phone || "";
+        $("clientEmail").value = client.email || "";
+
+        $("clientForm").querySelector('[type="submit"]').textContent =
+            "Guardar alterações";
+
+        $("clientName").focus();
+    }
+
+    if (deleteButton) {
+        const id = deleteButton.dataset.deleteClient;
+
+        if (!confirm("Tens a certeza de que desejas excluir este cliente?")) {
+            return;
+        }
+
+        clients = clients.filter(client => client.id !== id);
+
+        if (editingClientId === id) {
+            editingClientId = null;
+            $("clientForm").reset();
+            $("clientForm").querySelector('[type="submit"]').textContent =
+                "Adicionar cliente";
+        }
+
+        saveAll();
+        renderClients();
+        updateSelects();
+        renderDashboard();
+    }
 });
+
 
 /* =====================================
    SERVIÇOS
