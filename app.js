@@ -512,6 +512,41 @@ $("cancelAppointmentBtn").addEventListener("click", () => {
 
 $("filterDate").addEventListener("change", renderAppointments);
 
+function changeAgendaDate(days) {
+    const input = $("filterDate");
+    const date = input.value
+        ? new Date(input.value + "T12:00:00")
+        : new Date();
+
+    date.setDate(date.getDate() + days);
+
+    input.value = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")
+    ].join("-");
+
+    renderAppointments();
+}
+
+$("prevDateBtn").addEventListener("click", () => {
+    changeAgendaDate(-1);
+});
+
+$("nextDateBtn").addEventListener("click", () => {
+    changeAgendaDate(1);
+});
+
+$("todayBtn").addEventListener("click", () => {
+    $("filterDate").value = [
+        new Date().getFullYear(),
+        String(new Date().getMonth() + 1).padStart(2, "0"),
+        String(new Date().getDate()).padStart(2, "0")
+    ].join("-");
+
+    renderAppointments();
+});
+
 function renderAppointments() {
     const selectedDate = $("filterDate").value;
 
