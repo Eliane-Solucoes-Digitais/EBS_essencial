@@ -328,7 +328,8 @@ button {
 }
 
 form label,
-.filters label {
+.filters label,
+.agenda-filters label {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -416,13 +417,189 @@ textarea {
 }
 
 /* =====================================
-   AGENDA
+   AGENDA — CABEÇALHO
 ===================================== */
+
+.agenda-heading {
+    align-items: center;
+}
+
+.agenda-panel {
+    padding: 25px;
+}
+
+.agenda-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.agenda-navigation {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.agenda-navigation button {
+    min-width: 44px;
+    min-height: 42px;
+    padding: 9px 14px;
+}
+
+#agendaCurrentLabel {
+    flex-basis: 100%;
+    display: block;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--charcoal);
+    text-transform: capitalize;
+    margin-top: 5px;
+}
+
+.agenda-view-switch {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.agenda-view {
+    min-width: 100px;
+    padding: 10px 20px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--beige-light);
+    color: var(--charcoal);
+    font-size: 13px;
+}
+
+.agenda-view:hover {
+    background: var(--beige);
+}
+
+.agenda-view.active {
+    background: var(--champagne-dark);
+    border-color: var(--champagne-dark);
+    color: var(--white);
+    font-weight: 600;
+}
+
+/* =====================================
+   AGENDA — FILTROS
+===================================== */
+
+.agenda-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.agenda-filters label {
+    margin-bottom: 0;
+}
+
+.agenda-filters input,
+.agenda-filters select {
+    margin-top: 2px;
+}
 
 .filters {
     max-width: 240px;
     margin-bottom: 15px;
 }
+
+/* =====================================
+   AGENDA — CALENDÁRIO
+===================================== */
+
+.agenda-calendar {
+    width: 100%;
+    margin: 15px 0 25px;
+}
+
+.agenda-calendar[hidden] {
+    display: none;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+}
+
+.calendar-weekday {
+    text-align: center;
+    padding: 10px 2px;
+    color: var(--gray);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.calendar-empty {
+    min-height: 55px;
+}
+
+.calendar-day {
+    min-width: 0;
+    min-height: 55px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--charcoal);
+    font-size: 13px;
+}
+
+.calendar-day:hover {
+    background: var(--beige-light);
+    border-color: var(--champagne);
+}
+
+.calendar-day.today {
+    border-color: var(--champagne);
+    font-weight: 700;
+}
+
+.calendar-day.selected {
+    background: var(--champagne-dark);
+    color: var(--white);
+    border-color: var(--champagne-dark);
+    font-weight: 700;
+}
+
+.calendar-day i {
+    width: 5px;
+    height: 5px;
+    display: block;
+    border-radius: 50%;
+    background: var(--champagne);
+}
+
+.calendar-day.selected i {
+    background: var(--white);
+}
+
+.calendar-day.today:not(.selected) {
+    box-shadow: inset 0 0 0 1px var(--champagne);
+}
+
+/* =====================================
+   AGENDA — AGENDAMENTOS
+===================================== */
 
 .appointment-card {
     display: flex;
@@ -441,6 +618,7 @@ textarea {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
 }
 
 .appointment-info strong {
@@ -534,6 +712,14 @@ textarea {
         font-size: 21px;
     }
 
+    .agenda-heading {
+        align-items: flex-start;
+    }
+
+    .agenda-heading .primary-button {
+        width: 100%;
+    }
+
     .stats-grid {
         gap: 10px;
     }
@@ -553,6 +739,58 @@ textarea {
 
     .inline-form {
         grid-template-columns: 1fr;
+    }
+
+    .agenda-panel {
+        padding: 16px;
+    }
+
+    .agenda-toolbar {
+        gap: 15px;
+    }
+
+    .agenda-navigation {
+        gap: 8px;
+    }
+
+    .agenda-navigation button {
+        min-width: 42px;
+        min-height: 42px;
+    }
+
+    #agendaCurrentLabel {
+        font-size: 16px;
+        margin-top: 7px;
+    }
+
+    .agenda-view {
+        flex: 1;
+        min-width: 0;
+        padding: 11px 8px;
+    }
+
+    .agenda-filters {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+
+    .calendar-grid {
+        gap: 4px;
+    }
+
+    .calendar-weekday {
+        font-size: 10px;
+        padding: 8px 0;
+    }
+
+    .calendar-day {
+        min-height: 43px;
+        font-size: 12px;
+        border-radius: 6px;
+    }
+
+    .calendar-empty {
+        min-height: 43px;
     }
 
     .appointment-card {
@@ -582,50 +820,21 @@ textarea {
         font-size: 11px;
         padding: 9px;
     }
-}
-/* ALINHAMENTO DA AGENDA */
 
-.agenda-toolbar {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 20px;
-}
+    .calendar-grid {
+        gap: 3px;
+    }
 
-.agenda-navigation {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
+    .calendar-day {
+        min-height: 38px;
+        font-size: 11px;
+    }
 
-.agenda-navigation button {
-    min-width: 44px;
-    height: 44px;
-}
+    .calendar-empty {
+        min-height: 38px;
+    }
 
-#agendaCurrentLabel {
-    width: 100%;
-    text-align: center;
-    font-size: 16px;
-}
-
-.agenda-view-switch {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-}
-
-.agenda-view {
-    padding: 10px 20px;
-    border: 1px solid #e9e5de;
-    border-radius: 8px;
-    background: #f2ede5;
-    color: #383632;
-}
-
-.agenda-view.active {
-    background: #92764f;
-    color: white;
+    .calendar-weekday {
+        font-size: 9px;
+    }
 }
