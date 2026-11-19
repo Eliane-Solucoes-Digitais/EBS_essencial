@@ -4,6 +4,10 @@
    Gestão de agenda, clientes e serviços
 ===================================== */
 
+/* =====================================
+   ARMAZENAMENTO LOCAL
+===================================== */
+
 const Store = {
     get(key) {
         try {
@@ -34,13 +38,36 @@ let editingClientId = null;
 let editingServiceId = null;
 let editingProfessionalId = null;
 
+let agendaView = "month";
+let agendaDate = getToday();
+
+/* =====================================
+   FUNÇÕES GERAIS
+===================================== */
+
 const $ = id => document.getElementById(id);
 
-function saveAll() {
-    Store.set(KEYS.appointments, appointments);
-    Store.set(KEYS.clients, clients);
-    Store.set(KEYS.services, services);
-    Store.set(KEYS.professionals, professionals);
+function getToday() {
+    const date = new Date();
+
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")
+    ].join("-");
+}
+
+function parseDate(value) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day, 12);
+}
+
+function formatDate(value) {
+    return parseDate(value).toLocaleDateString("pt-PT", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+    });
 }
 
 function createId() {
@@ -65,6 +92,17 @@ function money(value) {
         currency: "EUR"
     });
 }
+
+function saveAll() {
+    Store.set(KEYS.appointments, appointments);
+    Store.set(KEYS.clients, clients);
+    Store.set(KEYS.services, services);
+    Store.set(KEYS.professionals, professionals);
+}
+
+/* =====================================
+   NAVEGAÇÃO
+===================================== */
 
 function showPage(pageId) {
     document.querySelectorAll(".page").forEach(page => {
@@ -101,7 +139,7 @@ function renderDashboard() {
     $("totalServices").textContent = services.length;
     $("totalProfessionals").textContent = professionals.length;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getToday();
 
     const upcoming = appointments
         .filter(item => item.date >= today && item.status !== "Cancelado")
@@ -122,7 +160,6 @@ function renderDashboard() {
         `).join("")
         : '<div class="empty-state">Ainda não existem próximos agendamentos.</div>';
 }
-
 
 /* =====================================
    CLIENTES
@@ -155,8 +192,10 @@ $("clientForm").addEventListener("submit", event => {
     }
 
     saveAll();
+
     $("clientForm").reset();
-    $("clientForm").querySelector('[type="submit"]').textContent = "Adicionar cliente";
+    $("clientForm").querySelector('[type="submit"]').textContent =
+        "Adicionar cliente";
 
     renderClients();
     updateSelects();
@@ -187,7 +226,6 @@ function renderClients() {
 }
 
 $("clientsList").addEventListener("click", event => {
-
     const editButton = event.target.closest("[data-edit-client]");
     const deleteButton = event.target.closest("[data-delete-client]");
 
@@ -233,8 +271,6 @@ $("clientsList").addEventListener("click", event => {
     }
 });
 
-
-
 /* =====================================
    SERVIÇOS
 ===================================== */
@@ -266,8 +302,10 @@ $("serviceForm").addEventListener("submit", event => {
     }
 
     saveAll();
+
     $("serviceForm").reset();
-    $("serviceForm").querySelector('[type="submit"]').textContent = "Adicionar serviço";
+    $("serviceForm").querySelector('[type="submit"]').textContent =
+        "Adicionar serviço";
 
     renderServices();
     updateSelects();
@@ -321,7 +359,9 @@ $("servicesList").addEventListener("click", event => {
     if (deleteButton) {
         const id = deleteButton.dataset.deleteService;
 
-        if (!confirm("Tens a certeza de que desejas excluir este serviço?")) return;
+        if (!confirm("Tens a certeza de que desejas excluir este serviço?")) {
+            return;
+        }
 
         services = services.filter(service => service.id !== id);
 
@@ -338,7 +378,6 @@ $("servicesList").addEventListener("click", event => {
         renderDashboard();
     }
 });
-
 
 /* =====================================
    PROFISSIONAIS
@@ -376,8 +415,8 @@ $("professionalForm").addEventListener("submit", event => {
     }
 
     saveAll();
-    $("professionalForm").reset();
 
+    $("professionalForm").reset();
     $("professionalForm").querySelector('[type="submit"]').textContent =
         "Adicionar profissional";
 
@@ -444,7 +483,6 @@ $("professionalsList").addEventListener("click", event => {
         if (editingProfessionalId === id) {
             editingProfessionalId = null;
             $("professionalForm").reset();
-
             $("professionalForm").querySelector('[type="submit"]').textContent =
                 "Adicionar profissional";
         }
@@ -478,6 +516,19 @@ function updateSelects() {
         services.map(service =>
             `<option value="${service.id}">${escapeHTML(service.name)}</option>`
         ).join("");
+
+    const filter = $("agendaProfessionalFilter");
+    const selected = filter.value;
+
+    filter.innerHTML =
+        '<option value="">Todas as profissionais</option>' +
+        professionals.map(professional =>
+            `<option value="${professional.id}">${escapeHTML(professional.name)}</option>`
+        ).join("");
+
+    if (professionals.some(item => item.id === selected)) {
+        filter.value = selected;
+    }
 }
 
 $("appointmentService").addEventListener("change", () => {
@@ -492,41 +543,30 @@ $("appointmentService").addEventListener("change", () => {
 });
 
 /* =====================================
-   AGENDA
+   AGENDA — NAVEGAÇÃO
 ===================================== */
 
-$("newAppointmentBtn").addEventListener("click", () => {
-    $("appointmentForm").reset();
-    $("appointmentId").value = "";
-    $("appointmentFormTitle").textContent = "Novo agendamento";
-    $("appointmentFormPanel").hidden = false;
-
-    $("appointmentDate").value = new Date().toISOString().slice(0, 10);
-    updateSelects();
-    $("appointmentFormPanel").scrollIntoView({ behavior: "smooth" });
-});
-
-$("cancelAppointmentBtn").addEventListener("click", () => {
-    $("appointmentFormPanel").hidden = true;
-});
-
-$("filterDate").addEventListener("change", renderAppointments);
-
-function changeAgendaDate(days) {
-    const input = $("filterDate");
-    const date = input.value
-        ? new Date(input.value + "T12:00:00")
-        : new Date();
-
-    date.setDate(date.getDate() + days);
-
-    input.value = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0")
-    ].join("-");
+function setAgendaDate(value) {
+    agendaDate = value;
+    $("filterDate").value = value;
 
     renderAppointments();
+}
+
+function changeAgendaDate(amount) {
+    const date = parseDate(agendaDate);
+
+    if (agendaView === "month") {
+        date.setMonth(date.getMonth() + amount, 1);
+    } else {
+        date.setDate(date.getDate() + amount);
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    setAgendaDate(`${year}-${month}-${day}`);
 }
 
 $("prevDateBtn").addEventListener("click", () => {
@@ -538,21 +578,140 @@ $("nextDateBtn").addEventListener("click", () => {
 });
 
 $("todayBtn").addEventListener("click", () => {
-    $("filterDate").value = [
-        new Date().getFullYear(),
-        String(new Date().getMonth() + 1).padStart(2, "0"),
-        String(new Date().getDate()).padStart(2, "0")
-    ].join("-");
+    setAgendaDate(getToday());
+});
 
+$("filterDate").addEventListener("change", () => {
+    if (!$("filterDate").value) return;
+
+    agendaDate = $("filterDate").value;
     renderAppointments();
 });
 
+$("agendaProfessionalFilter").addEventListener("change", () => {
+    renderAppointments();
+});
+
+/* =====================================
+   AGENDA — VISTA MÊS / DIA
+===================================== */
+
+document.querySelectorAll(".agenda-view").forEach(button => {
+    button.addEventListener("click", () => {
+        agendaView = button.dataset.view;
+
+        document.querySelectorAll(".agenda-view").forEach(item => {
+            item.classList.toggle("active", item === button);
+        });
+
+        renderAppointments();
+    });
+});
+
+/* =====================================
+   AGENDA — CALENDÁRIO MENSAL
+===================================== */
+
+function renderCalendar() {
+    const date = parseDate(agendaDate);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const offset = (firstDay + 6) % 7;
+
+    const weekdays = [
+        "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"
+    ];
+
+    let html = `
+        <div class="calendar-grid">
+            ${weekdays.map(day => `
+                <div class="calendar-weekday">${day}</div>
+            `).join("")}
+    `;
+
+    for (let i = 0; i < offset; i++) {
+        html += '<div class="calendar-empty"></div>';
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const value = [
+            year,
+            String(month + 1).padStart(2, "0"),
+            String(day).padStart(2, "0")
+        ].join("-");
+
+        const hasAppointments = appointments.some(item => {
+            const professionalFilter = $("agendaProfessionalFilter").value;
+
+            return item.date === value &&
+                (!professionalFilter || item.professionalId === professionalFilter);
+        });
+
+        const isSelected = value === agendaDate;
+        const isToday = value === getToday();
+
+        html += `
+            <button
+                type="button"
+                class="calendar-day
+                    ${isSelected ? "selected" : ""}
+                    ${isToday ? "today" : ""}
+                    ${hasAppointments ? "has-appointments" : ""}"
+                data-calendar-date="${value}">
+                <span>${day}</span>
+                ${hasAppointments ? '<i></i>' : ""}
+            </button>
+        `;
+    }
+
+    html += "</div>";
+
+    $("agendaCalendar").innerHTML = html;
+}
+
+$("agendaCalendar").addEventListener("click", event => {
+    const button = event.target.closest("[data-calendar-date]");
+
+    if (!button) return;
+
+    setAgendaDate(button.dataset.calendarDate);
+});
+
+/* =====================================
+   AGENDA — RENDERIZAÇÃO
+===================================== */
+
 function renderAppointments() {
-    const selectedDate = $("filterDate").value;
+    const selectedDate = agendaDate;
+    const selectedProfessional = $("agendaProfessionalFilter").value;
+
+    const date = parseDate(selectedDate);
+
+    if (agendaView === "month") {
+        $("agendaCurrentLabel").textContent =
+            date.toLocaleDateString("pt-PT", {
+                month: "long",
+                year: "numeric"
+            });
+
+        $("agendaCalendar").hidden = false;
+        renderCalendar();
+    } else {
+        $("agendaCurrentLabel").textContent = formatDate(selectedDate);
+        $("agendaCalendar").hidden = true;
+    }
 
     const filtered = appointments
-        .filter(item => !selectedDate || item.date === selectedDate)
-        .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+        .filter(item => item.date === selectedDate)
+        .filter(item =>
+            !selectedProfessional ||
+            item.professionalId === selectedProfessional
+        )
+        .sort((a, b) => a.time.localeCompare(b.time));
 
     $("appointmentsList").innerHTML = filtered.length
         ? filtered.map(item => `
@@ -566,14 +725,49 @@ function renderAppointments() {
                 </div>
 
                 <div class="appointment-actions">
-                    <button class="secondary-button" data-edit-appointment="${item.id}">Editar</button>
-                    <button class="whatsapp-button" data-whatsapp="${item.id}">WhatsApp</button>
-                    <button class="delete-button" data-delete-appointment="${item.id}">Eliminar</button>
+                    <button class="secondary-button" data-edit-appointment="${item.id}">
+                        Editar
+                    </button>
+
+                    <button class="whatsapp-button" data-whatsapp="${item.id}">
+                        WhatsApp
+                    </button>
+
+                    <button class="delete-button" data-delete-appointment="${item.id}">
+                        Eliminar
+                    </button>
                 </div>
             </div>
         `).join("")
         : '<div class="empty-state">Não existem agendamentos para esta data.</div>';
 }
+
+/* =====================================
+   NOVO AGENDAMENTO
+===================================== */
+
+$("newAppointmentBtn").addEventListener("click", () => {
+    $("appointmentForm").reset();
+    $("appointmentId").value = "";
+    $("appointmentFormTitle").textContent = "Novo agendamento";
+    $("appointmentFormPanel").hidden = false;
+
+    $("appointmentDate").value = agendaDate;
+
+    updateSelects();
+
+    $("appointmentFormPanel").scrollIntoView({
+        behavior: "smooth"
+    });
+});
+
+$("cancelAppointmentBtn").addEventListener("click", () => {
+    $("appointmentFormPanel").hidden = true;
+});
+
+/* =====================================
+   EDITAR / ELIMINAR AGENDAMENTO
+===================================== */
 
 $("appointmentsList").addEventListener("click", event => {
     const editButton = event.target.closest("[data-edit-appointment]");
@@ -603,6 +797,7 @@ $("appointmentsList").addEventListener("click", event => {
 
 function editAppointment(id) {
     const item = appointments.find(appointment => appointment.id === id);
+
     if (!item) return;
 
     updateSelects();
@@ -620,8 +815,15 @@ function editAppointment(id) {
 
     $("appointmentFormTitle").textContent = "Editar agendamento";
     $("appointmentFormPanel").hidden = false;
-    $("appointmentFormPanel").scrollIntoView({ behavior: "smooth" });
+
+    $("appointmentFormPanel").scrollIntoView({
+        behavior: "smooth"
+    });
 }
+
+/* =====================================
+   GUARDAR AGENDAMENTO
+===================================== */
 
 function timeToMinutes(time) {
     const [hours, minutes] = time.split(":").map(Number);
@@ -632,9 +834,18 @@ $("appointmentForm").addEventListener("submit", event => {
     event.preventDefault();
 
     const id = $("appointmentId").value;
-    const client = clients.find(item => item.id === $("appointmentClient").value);
-    const professional = professionals.find(item => item.id === $("appointmentProfessional").value);
-    const service = services.find(item => item.id === $("appointmentService").value);
+
+    const client = clients.find(
+        item => item.id === $("appointmentClient").value
+    );
+
+    const professional = professionals.find(
+        item => item.id === $("appointmentProfessional").value
+    );
+
+    const service = services.find(
+        item => item.id === $("appointmentService").value
+    );
 
     if (!client || !professional || !service) {
         alert("Seleciona um cliente, uma profissional e um serviço.");
@@ -659,7 +870,12 @@ $("appointmentForm").addEventListener("submit", event => {
     }
 
     const conflict = appointments.some(item => {
-        if (item.id === id || item.professionalId !== professional.id || item.date !== date || item.status === "Cancelado") {
+        if (
+            item.id === id ||
+            item.professionalId !== professional.id ||
+            item.date !== date ||
+            item.status === "Cancelado"
+        ) {
             return false;
         }
 
@@ -692,13 +908,20 @@ $("appointmentForm").addEventListener("submit", event => {
     };
 
     if (id) {
-        appointments = appointments.map(item => item.id === id ? appointment : item);
+        appointments = appointments.map(item =>
+            item.id === id ? appointment : item
+        );
     } else {
         appointments.push(appointment);
     }
 
     saveAll();
+
+    agendaDate = date;
+    $("filterDate").value = date;
+
     $("appointmentFormPanel").hidden = true;
+
     renderAppointments();
     renderDashboard();
 
@@ -711,6 +934,7 @@ $("appointmentForm").addEventListener("submit", event => {
 
 function sendWhatsApp(id) {
     const appointment = appointments.find(item => item.id === id);
+
     if (!appointment) return;
 
     const phone = String(appointment.clientPhone || "").replace(/\D/g, "");
@@ -729,7 +953,8 @@ function sendWhatsApp(id) {
         `Profissional: ${appointment.professionalName}\n\n` +
         `Aguardamos a sua confirmação. Obrigada!`;
 
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const url =
+        `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
     window.open(url, "_blank", "noopener,noreferrer");
 }
@@ -740,13 +965,14 @@ function sendWhatsApp(id) {
 
 function initializeApp() {
     updateSelects();
+
+    $("filterDate").value = agendaDate;
+
     renderDashboard();
     renderAppointments();
     renderClients();
     renderServices();
     renderProfessionals();
-
-    $("filterDate").value = new Date().toISOString().slice(0, 10);
 }
 
 initializeApp();
