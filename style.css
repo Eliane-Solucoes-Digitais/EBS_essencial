@@ -583,3 +583,49 @@ textarea {
         padding: 9px;
     }
 }
+/* ALINHAMENTO DA AGENDA */
+
+.agenda-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.agenda-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.agenda-navigation button {
+    min-width: 44px;
+    height: 44px;
+}
+
+#agendaCurrentLabel {
+    width: 100%;
+    text-align: center;
+    font-size: 16px;
+}
+
+.agenda-view-switch {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.agenda-view {
+    padding: 10px 20px;
+    border: 1px solid #e9e5de;
+    border-radius: 8px;
+    background: #f2ede5;
+    color: #383632;
+}
+
+.agenda-view.active {
+    background: #92764f;
+    color: white;
+}
