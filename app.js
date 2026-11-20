@@ -1,978 +1,1291 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 
-/* =====================================
-   EBS BEAUTY ESSENCIAL
-   Gestão de agenda, clientes e serviços
-===================================== */
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
-/* =====================================
-   ARMAZENAMENTO LOCAL
-===================================== */
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
-const Store = {
-    get(key) {
-        try {
-            return JSON.parse(localStorage.getItem(key)) || [];
-        } catch {
-            return [];
-        }
-    },
+/* =========================================
+   1. CONFIGURAÇÃO FIREBASE
+========================================= */
 
-    set(key, data) {
-        localStorage.setItem(key, JSON.stringify(data));
+const firebaseConfig = {
+  apiKey: "AIzaSyBg5gMODOjb0uTlBXu_sZ-V2X-xLLQfo3",
+  authDomain: "ebs-beauty-essencial-dev.firebaseapp.com",
+  projectId: "ebs-beauty-essencial-dev",
+  storageBucket: "ebs-beauty-essencial-dev.firebasestorage.app",
+  messagingSenderId: "247538792217",
+  appId: "1:247538792217:web:83549932a0c517d6087788"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+/* =========================================
+   2. ESTADO DA APLICAÇÃO
+========================================= */
+
+const state = {
+  user: null,
+  salonId: null,
+  salon: {},
+  appointments: [],
+  clients: [],
+  services: [],
+  professionals: [],
+  currentDate: new Date(),
+  currentView: "day",
+  activePage: "agenda",
+  bufferMinutes: 0,
+  unsubscribers: []
+};
+
+const $ = (id) => document.getElementById(id);
+
+const loadingScreen = $("loadingScreen");
+const loginScreen = $("loginScreen");
+const appScreen = $("app");
+
+function hideLoading() {
+  if (loadingScreen) loadingScreen.classList.add("hidden");
+}
+
+function showLogin() {
+  if (loginScreen) loginScreen.classList.remove("hidden");
+  if (appScreen) appScreen.classList.add("hidden");
+}
+
+function showApp() {
+  if (loginScreen) loginScreen.classList.add("hidden");
+  if (appScreen) appScreen.classList.remove("hidden");
+  hideLoading();
+}
+
+/* =========================================
+   3. NOTIFICAÇÕES
+========================================= */
+
+function notify(message, type = "success") {
+  const oldToast = document.querySelector(".toast");
+  if (oldToast) oldToast.remove();
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => toast.remove(), 3500);
+}
+
+function showError(error, fallback = "Ocorreu um erro.") {
+  console.error(error);
+  notify(error?.message || fallback, "error");
+}
+
+/* =========================================
+   4. DATAS E HORAS
+========================================= */
+
+function dateKey(date) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDate(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(date) {
+  return new Intl.DateTimeFormat("pt-PT", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+function formatShortDate(date) {
+  return new Intl.DateTimeFormat("pt-PT", {
+    day: "2-digit",
+    month: "2-digit"
+  }).format(date);
+}
+
+function formatTime(time) {
+  return time || "--:--";
+}
+
+function timeToMinutes(time) {
+  const [hours, minutes] = (time || "00:00").split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+function addDays(date, amount) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
+function escapeHTML(value = "") {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  })[char]);
+}
+
+/* =========================================
+   5. CAMINHOS FIRESTORE
+========================================= */
+
+function salonDocument() {
+  return doc(db, "saloes", state.salonId);
+}
+
+function userDocument(uid) {
+  return doc(db, "users", uid);
+}
+
+function salonCollection(name) {
+  return collection(db, "saloes", state.salonId, name);
+}
+
+function stopListeners() {
+  state.unsubscribers.forEach((unsubscribe) => unsubscribe());
+  state.unsubscribers = [];
+}
+
+function clearData() {
+  stopListeners();
+
+  state.appointments = [];
+  state.clients = [];
+  state.services = [];
+  state.professionals = [];
+  state.salon = {};
+  state.salonId = null;
+}
+
+/* =========================================
+   6. AUTENTICAÇÃO
+========================================= */
+
+const loginForm = $("loginForm");
+
+if (loginForm) {
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const email = $("loginEmail")?.value.trim();
+    const password = $("loginPassword")?.value;
+
+    if (!email || !password) {
+      notify("Preencha o e-mail e a palavra-passe.", "error");
+      return;
     }
-};
 
-const KEYS = {
-    appointments: "ebs_essencial_agendamentos",
-    clients: "ebs_essencial_clientes",
-    services: "ebs_essencial_servicos",
-    professionals: "ebs_essencial_profissionais"
-};
+    const button = loginForm.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
 
-let appointments = Store.get(KEYS.appointments);
-let clients = Store.get(KEYS.clients);
-let services = Store.get(KEYS.services);
-let professionals = Store.get(KEYS.professionals);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      const messages = {
+        "auth/invalid-credential": "E-mail ou palavra-passe incorretos.",
+        "auth/user-not-found": "Utilizador não encontrado.",
+        "auth/wrong-password": "Palavra-passe incorreta.",
+        "auth/too-many-requests": "Demasiadas tentativas. Tente mais tarde."
+      };
 
-let editingClientId = null;
-let editingServiceId = null;
-let editingProfessionalId = null;
-
-let agendaView = "month";
-let agendaDate = getToday();
-
-/* =====================================
-   FUNÇÕES GERAIS
-===================================== */
-
-const $ = id => document.getElementById(id);
-
-function getToday() {
-    const date = new Date();
-
-    return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0")
-    ].join("-");
+      notify(messages[error.code] || "Não foi possível iniciar sessão.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
 }
 
-function parseDate(value) {
-    const [year, month, day] = value.split("-").map(Number);
-    return new Date(year, month - 1, day, 12);
+const logoutBtn = $("logoutBtn");
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      showError(error, "Não foi possível terminar a sessão.");
+    }
+  });
 }
 
-function formatDate(value) {
-    return parseDate(value).toLocaleDateString("pt-PT", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric"
-    });
-}
+onAuthStateChanged(auth, async (user) => {
+  clearData();
+  state.user = user;
 
-function createId() {
-    return crypto.randomUUID
-        ? crypto.randomUUID()
-        : Date.now().toString(36) + Math.random().toString(36).slice(2);
-}
+  if (!user) {
+    showLogin();
+    hideLoading();
+    return;
+  }
 
-function escapeHTML(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[char]);
-}
+  try {
+    const profileSnapshot = await getDoc(userDocument(user.uid));
 
-function money(value) {
-    return Number(value || 0).toLocaleString("pt-PT", {
-        style: "currency",
-        currency: "EUR"
-    });
-}
+    if (!profileSnapshot.exists()) {
+      throw new Error(
+        "O perfil deste utilizador ainda não está configurado. É necessário associar o utilizador a um salão no Firestore."
+      );
+    }
 
-function saveAll() {
-    Store.set(KEYS.appointments, appointments);
-    Store.set(KEYS.clients, clients);
-    Store.set(KEYS.services, services);
-    Store.set(KEYS.professionals, professionals);
-}
+    const profile = profileSnapshot.data();
 
-/* =====================================
-   NAVEGAÇÃO
-===================================== */
+    if (!profile.salonId) {
+      throw new Error("O perfil não tem um salonId associado.");
+    }
 
-function showPage(pageId) {
-    document.querySelectorAll(".page").forEach(page => {
-        page.classList.toggle("active", page.id === pageId);
-    });
+    state.salonId = profile.salonId;
 
-    document.querySelectorAll(".menu-item").forEach(button => {
-        button.classList.toggle(
-            "active",
-            button.dataset.page === pageId
-        );
-    });
+    const salonSnapshot = await getDoc(salonDocument());
 
-    if (pageId === "dashboard") renderDashboard();
-    if (pageId === "agenda") renderAppointments();
-    if (pageId === "clientes") renderClients();
-    if (pageId === "servicos") renderServices();
-    if (pageId === "profissionais") renderProfessionals();
-}
+    if (!salonSnapshot.exists()) {
+      throw new Error("O salão associado não foi encontrado no Firestore.");
+    }
 
-document.querySelectorAll(".menu-item").forEach(button => {
-    button.addEventListener("click", () => {
-        showPage(button.dataset.page);
-    });
+    state.salon = salonSnapshot.data();
+    state.bufferMinutes = Number(state.salon.bufferMinutes || 0);
+
+    showApp();
+    applySalonSettings();
+    setupNavigation();
+    setupAgenda();
+    setupForms();
+    setupMobileMenu();
+    startDataListeners();
+
+  } catch (error) {
+    console.error(error);
+    showLogin();
+    hideLoading();
+    notify(error.message || "Não foi possível carregar o salão.", "error");
+  }
 });
 
-/* =====================================
-   DASHBOARD
-===================================== */
+/* =========================================
+   7. CARREGAMENTO DOS DADOS
+========================================= */
 
-function renderDashboard() {
-    $("totalAppointments").textContent = appointments.length;
-    $("totalClients").textContent = clients.length;
-    $("totalServices").textContent = services.length;
-    $("totalProfessionals").textContent = professionals.length;
+function startDataListeners() {
+  stopListeners();
 
-    const today = getToday();
-
-    const upcoming = appointments
-        .filter(item => item.date >= today && item.status !== "Cancelado")
-        .sort((a, b) =>
-            (a.date + a.time).localeCompare(b.date + b.time)
-        )
-        .slice(0, 5);
-
-    $("dashboardAppointments").innerHTML = upcoming.length
-        ? upcoming.map(item => `
-            <div class="appointment-row">
-                <div>
-                    <strong>${escapeHTML(item.clientName)}</strong>
-                    <small>${escapeHTML(item.serviceName)} · ${escapeHTML(item.professionalName)}</small>
-                </div>
-                <span>${escapeHTML(item.date)} · ${escapeHTML(item.time)}</span>
-            </div>
-        `).join("")
-        : '<div class="empty-state">Ainda não existem próximos agendamentos.</div>';
+  listenCollection("agendamentos", "appointments");
+  listenCollection("clientes", "clients");
+  listenCollection("servicos", "services");
+  listenCollection("profissionais", "professionals");
 }
 
-/* =====================================
-   CLIENTES
-===================================== */
+function listenCollection(collectionName, stateName) {
+  const ref = salonCollection(collectionName);
 
-$("clientForm").addEventListener("submit", event => {
+  const unsubscribe = onSnapshot(
+    ref,
+    (snapshot) => {
+      state[stateName] = snapshot.docs.map((document) => ({
+        id: document.id,
+        ...document.data()
+      }));
+
+      if (stateName === "appointments") renderCalendar();
+      if (stateName === "clients") renderClients();
+      if (stateName === "services") {
+        renderServices();
+        refreshAppointmentOptions();
+      }
+      if (stateName === "professionals") {
+        renderProfessionals();
+        refreshAppointmentOptions();
+      }
+    },
+    (error) => {
+      console.error(`Erro na coleção ${collectionName}:`, error);
+      notify(`Não foi possível carregar ${collectionName}. Verifique as regras do Firestore.`, "error");
+    }
+  );
+
+  state.unsubscribers.push(unsubscribe);
+}
+
+/* =========================================
+   8. CONFIGURAÇÕES DO SALÃO
+========================================= */
+
+function applySalonSettings() {
+  const name = state.salon.name || "EBS Beauty Essencial";
+
+  const salonName = $("salonName");
+  if (salonName) salonName.textContent = name;
+
+  const settingName = $("settingSalonName");
+  if (settingName) settingName.value = name;
+
+  const bufferInput = $("bufferMinutes");
+  if (bufferInput) bufferInput.value = state.bufferMinutes;
+}
+
+const saveSettingsBtn = $("saveSettingsBtn");
+
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener("click", async () => {
+    if (!state.salonId) return;
+
+    const name = $("settingSalonName")?.value.trim();
+    const buffer = Number($("bufferMinutes")?.value || 0);
+
+    if (!name) {
+      notify("Indique o nome do salão.", "error");
+      return;
+    }
+
+    if (buffer < 0 || buffer > 120) {
+      notify("O intervalo deve estar entre 0 e 120 minutos.", "error");
+      return;
+    }
+
+    try {
+      await updateDoc(salonDocument(), {
+        name,
+        bufferMinutes: buffer,
+        updatedAt: serverTimestamp()
+      });
+
+      state.salon.name = name;
+      state.bufferMinutes = buffer;
+
+      applySalonSettings();
+      notify("Configurações guardadas.");
+    } catch (error) {
+      showError(error, "Não foi possível guardar as configurações.");
+    }
+  });
+}
+
+/* =========================================
+   9. NAVEGAÇÃO
+========================================= */
+
+function setupNavigation() {
+  document.querySelectorAll("[data-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const page = button.dataset.page;
+      openPage(page);
+    });
+  });
+}
+
+function openPage(page) {
+  state.activePage = page;
+
+  document.querySelectorAll(".page").forEach((element) => {
+    element.classList.remove("active");
+  });
+
+  const selectedPage = $(`page-${page}`);
+  if (selectedPage) selectedPage.classList.add("active");
+
+  document.querySelectorAll("[data-page]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.page === page);
+  });
+
+  const titles = {
+    agenda: "Agenda",
+    clients: "Clientes",
+    services: "Serviços",
+    team: "Equipa",
+    settings: "Configurações"
+  };
+
+  const title = $("pageTitle");
+  if (title) title.textContent = titles[page] || "EBS Essencial";
+
+  document.querySelector(".sidebar")?.classList.remove("open");
+}
+
+/* =========================================
+   10. MENU MOBILE
+========================================= */
+
+function setupMobileMenu() {
+  const menuButton = $("mobileMenuBtn");
+  const sidebar = $("sidebar");
+
+  if (menuButton && sidebar) {
+    menuButton.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+    });
+  }
+}
+
+/* =========================================
+   11. AGENDA
+========================================= */
+
+function setupAgenda() {
+  $("prevDateBtn")?.addEventListener("click", () => {
+    moveCalendar(-1);
+  });
+
+  $("nextDateBtn")?.addEventListener("click", () => {
+    moveCalendar(1);
+  });
+
+  $("todayBtn")?.addEventListener("click", () => {
+    state.currentDate = new Date();
+    renderCalendar();
+  });
+
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.currentView = button.dataset.view;
+
+      document.querySelectorAll("[data-view]").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+
+      renderCalendar();
+    });
+  });
+
+  $("agendaDate")?.addEventListener("change", (event) => {
+    if (event.target.value) {
+      state.currentDate = parseDate(event.target.value);
+      renderCalendar();
+    }
+  });
+
+  $("professionalFilter")?.addEventListener("change", renderCalendar);
+
+  $("newAppointmentBtn")?.addEventListener("click", () => {
+    openAppointmentDialog();
+  });
+
+  renderCalendar();
+}
+
+function moveCalendar(direction) {
+  const date = new Date(state.currentDate);
+
+  if (state.currentView === "day") {
+    date.setDate(date.getDate() + direction);
+  } else if (state.currentView === "week") {
+    date.setDate(date.getDate() + direction * 7);
+  } else {
+    date.setMonth(date.getMonth() + direction);
+  }
+
+  state.currentDate = date;
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const canvas = $("calendarCanvas");
+  if (!canvas) return;
+
+  const label = $("currentDateLabel");
+  const dateInput = $("agendaDate");
+
+  if (label) {
+    if (state.currentView === "month") {
+      label.textContent = new Intl.DateTimeFormat("pt-PT", {
+        month: "long",
+        year: "numeric"
+      }).format(state.currentDate);
+    } else {
+      label.textContent = formatDate(state.currentDate);
+    }
+  }
+
+  if (dateInput) dateInput.value = dateKey(state.currentDate);
+
+  if (state.currentView === "day") {
+    renderDayView(canvas);
+  } else if (state.currentView === "week") {
+    renderWeekView(canvas);
+  } else {
+    renderMonthView(canvas);
+  }
+}
+
+function getVisibleProfessionals() {
+  const selected = $("professionalFilter")?.value || "all";
+
+  if (selected === "all") return state.professionals;
+
+  return state.professionals.filter((person) => person.id === selected);
+}
+
+function getAppointmentsForDate(date) {
+  const key = dateKey(date);
+
+  return state.appointments.filter((appointment) => {
+    return appointment.date === key;
+  });
+}
+
+function getProfessionalName(id) {
+  return state.professionals.find((person) => person.id === id)?.name || "Profissional";
+}
+
+function getClientName(id) {
+  return state.clients.find((client) => client.id === id)?.name || "Cliente";
+}
+
+function getServiceName(id) {
+  return state.services.find((service) => service.id === id)?.name || "Serviço";
+}
+
+function appointmentStatusClass(status) {
+  const classes = {
+    "Agendado": "agendado",
+    "Confirmado": "confirmado",
+    "Em atendimento": "em-atendimento",
+    "Concluído": "concluido",
+    "Cancelado": "cancelado",
+    "Não compareceu": "nao-compareceu"
+  };
+
+  return classes[status] || "agendado";
+}
+
+function appointmentButton(appointment) {
+  return `
+    <button class="appointment-block status-${appointmentStatusClass(appointment.status)}"
+      data-edit-appointment="${escapeHTML(appointment.id)}">
+      <strong>${escapeHTML(appointment.time || "")} · ${escapeHTML(getClientName(appointment.clientId))}</strong>
+      <small>${escapeHTML(getServiceName(appointment.serviceId))}</small>
+      <small>${escapeHTML(appointment.status || "Agendado")}</small>
+    </button>
+  `;
+}
+
+function renderDayView(canvas) {
+  const professionals = getVisibleProfessionals();
+  const appointments = getAppointmentsForDate(state.currentDate);
+
+  if (!professionals.length) {
+    canvas.innerHTML = `<div class="empty-state"><strong>Sem profissionais</strong>Adicione profissionais para começar a utilizar a agenda.</div>`;
+    return;
+  }
+
+  const startHour = 8;
+  const endHour = 20;
+
+  canvas.innerHTML = `
+    <div class="day-grid">
+      <div class="day-grid-header" style="--professional-count:${professionals.length}">
+        <div>Hora</div>
+        ${professionals.map((person) => `
+          <div>${escapeHTML(person.name)}</div>
+        `).join("")}
+      </div>
+
+      <div class="day-grid-inner" style="--professional-count:${professionals.length}">
+        ${Array.from({ length: endHour - startHour }, (_, index) => {
+          const hour = startHour + index;
+
+          return `
+            <div class="time-cell">${String(hour).padStart(2, "0")}:00</div>
+            ${professionals.map((person) => {
+              const matching = appointments.filter((appointment) => {
+                return appointment.professionalId === person.id &&
+                  Math.floor(timeToMinutes(appointment.time) / 60) === hour;
+              });
+
+              return `
+                <div class="slot-cell" data-slot-date="${dateKey(state.currentDate)}"
+                  data-slot-time="${String(hour).padStart(2, "0")}:00"
+                  data-slot-professional="${escapeHTML(person.id)}">
+                  ${matching.map(appointmentButton).join("")}
+                </div>
+              `;
+            }).join("")}
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+
+  canvas.querySelectorAll("[data-edit-appointment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const appointment = state.appointments.find((item) => item.id === button.dataset.editAppointment);
+      if (appointment) openAppointmentDialog(appointment);
+    });
+  });
+
+  canvas.querySelectorAll("[data-slot-date]").forEach((slot) => {
+    slot.addEventListener("dblclick", () => {
+      openAppointmentDialog(null, {
+        date: slot.dataset.slotDate,
+        time: slot.dataset.slotTime,
+        professionalId: slot.dataset.slotProfessional
+      });
+    });
+  });
+}
+
+/* =========================================
+   12. VISTA SEMANAL
+========================================= */
+
+function getStartOfWeek(date) {
+  const result = new Date(date);
+  const day = result.getDay();
+  result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function renderWeekView(canvas) {
+  const start = getStartOfWeek(state.currentDate);
+  const professionals = getVisibleProfessionals();
+
+  canvas.innerHTML = `
+    <div class="week-grid">
+      ${Array.from({ length: 7 }, (_, index) => {
+        const day = addDays(start, index);
+        const appointments = getAppointmentsForDate(day);
+
+        return `
+          <div class="week-day">
+            <div class="week-day-header">
+              ${new Intl.DateTimeFormat("pt-PT", { weekday: "short" }).format(day)}
+              <small>${formatShortDate(day)}</small>
+            </div>
+            ${appointments
+              .filter((appointment) => professionals.some((person) => person.id === appointment.professionalId))
+              .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+              .map((appointment) => `
+                <div class="week-event">
+                  ${appointmentButton(appointment)}
+                  <small>${escapeHTML(getProfessionalName(appointment.professionalId))}</small>
+                </div>
+              `).join("")}
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+
+  canvas.querySelectorAll("[data-edit-appointment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const appointment = state.appointments.find((item) => item.id === button.dataset.editAppointment);
+      if (appointment) openAppointmentDialog(appointment);
+    });
+  });
+}
+
+/* =========================================
+   13. VISTA MENSAL
+========================================= */
+
+function renderMonthView(canvas) {
+  const year = state.currentDate.getFullYear();
+  const month = state.currentDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const gridStart = addDays(firstDay, -startOffset);
+
+  const professionals = getVisibleProfessionals();
+
+  const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+  canvas.innerHTML = `
+    <div class="month-grid">
+      ${weekdays.map((day) => `<div class="month-weekday">${day}</div>`).join("")}
+
+      ${Array.from({ length: 42 }, (_, index) => {
+        const day = addDays(gridStart, index);
+        const appointments = getAppointmentsForDate(day).filter((appointment) => {
+          return professionals.some((person) => person.id === appointment.professionalId);
+        });
+
+        const isToday = dateKey(day) === dateKey(new Date());
+
+        return `
+          <div class="month-day ${isToday ? "today" : ""}">
+            <div class="month-day-number">${day.getDate()}</div>
+            ${appointments.slice(0, 3).map((appointment) => `
+              <button class="month-event" data-edit-appointment="${escapeHTML(appointment.id)}">
+                ${escapeHTML(appointment.time)} ${escapeHTML(getClientName(appointment.clientId))}
+              </button>
+            `).join("")}
+            ${appointments.length > 3 ? `<small>+${appointments.length - 3} mais</small>` : ""}
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+
+  canvas.querySelectorAll("[data-edit-appointment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const appointment = state.appointments.find((item) => item.id === button.dataset.editAppointment);
+      if (appointment) openAppointmentDialog(appointment);
+    });
+  });
+
+  canvas.querySelectorAll(".month-day").forEach((element, index) => {
+    element.addEventListener("dblclick", () => {
+      const day = addDays(gridStart, index);
+      state.currentDate = day;
+      state.currentView = "day";
+      document.querySelectorAll("[data-view]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.view === "day");
+      });
+      renderCalendar();
+    });
+  });
+}
+
+/* =========================================
+   14. FORMULÁRIO DE MARCAÇÕES
+========================================= */
+
+function refreshAppointmentOptions() {
+  const clientSelect = $("appointmentClient");
+  const professionalSelect = $("appointmentProfessional");
+  const serviceSelect = $("appointmentService");
+
+  if (clientSelect) {
+    const selected = clientSelect.value;
+    clientSelect.innerHTML = `<option value="">Selecionar cliente</option>` +
+      state.clients.map((client) =>
+        `<option value="${escapeHTML(client.id)}">${escapeHTML(client.name)}</option>`
+      ).join("");
+    clientSelect.value = selected;
+  }
+
+  if (professionalSelect) {
+    const selected = professionalSelect.value;
+    professionalSelect.innerHTML = `<option value="">Selecionar profissional</option>` +
+      state.professionals.map((person) =>
+        `<option value="${escapeHTML(person.id)}">${escapeHTML(person.name)}</option>`
+      ).join("");
+    professionalSelect.value = selected;
+  }
+
+  if (serviceSelect) {
+    const selected = serviceSelect.value;
+    serviceSelect.innerHTML = `<option value="">Selecionar serviço</option>` +
+      state.services.map((service) =>
+        `<option value="${escapeHTML(service.id)}">${escapeHTML(service.name)}</option>`
+      ).join("");
+    serviceSelect.value = selected;
+  }
+
+  const filter = $("professionalFilter");
+
+  if (filter) {
+    const selected = filter.value;
+    filter.innerHTML = `<option value="all">Todos os profissionais</option>` +
+      state.professionals.map((person) =>
+        `<option value="${escapeHTML(person.id)}">${escapeHTML(person.name)}</option>`
+      ).join("");
+    filter.value = selected || "all";
+  }
+}
+
+function openAppointmentDialog(appointment = null, preset = {}) {
+  const dialog = $("appointmentDialog");
+  const form = $("appointmentForm");
+
+  if (!dialog || !form) {
+    notify("A janela de marcação não foi encontrada.", "error");
+    return;
+  }
+
+  form.reset();
+
+  $("appointmentId").value = appointment?.id || "";
+  $("appointmentDate").value = appointment?.date || preset.date || dateKey(state.currentDate);
+  $("appointmentTime").value = appointment?.time || preset.time || "09:00";
+  $("appointmentClient").value = appointment?.clientId || "";
+  $("appointmentProfessional").value = appointment?.professionalId || preset.professionalId || "";
+  $("appointmentService").value = appointment?.serviceId || "";
+  $("appointmentDuration").value = appointment?.duration || 30;
+  $("appointmentStatus").value = appointment?.status || "Agendado";
+  $("appointmentValue").value = appointment?.value ?? "";
+  $("appointmentNotes").value = appointment?.notes || "";
+
+  const title = $("appointmentDialogTitle");
+  if (title) title.textContent = appointment ? "Editar marcação" : "Nova marcação";
+
+  const deleteButton = $("deleteAppointmentBtn");
+  if (deleteButton) {
+    deleteButton.classList.toggle("hidden", !appointment);
+  }
+
+  const whatsappButton = $("whatsappAppointmentBtn");
+  if (whatsappButton) {
+    whatsappButton.classList.toggle("hidden", !appointment);
+  }
+
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute("open", "");
+  }
+}
+
+function setupForms() {
+  setupAppointmentForm();
+  setupClientForm();
+  setupServiceForm();
+  setupProfessionalForm();
+  setupDeleteAppointment();
+  setupWhatsAppButton();
+}
+
+function setupAppointmentForm() {
+  const form = $("appointmentForm");
+  if (!form) return;
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const id = $("appointmentId").value;
+
+    const appointment = {
+      clientId: $("appointmentClient").value,
+      professionalId: $("appointmentProfessional").value,
+      serviceId: $("appointmentService").value,
+      date: $("appointmentDate").value,
+      time: $("appointmentTime").value,
+      duration: Number($("appointmentDuration").value || 30),
+      status: $("appointmentStatus").value || "Agendado",
+      value: Number($("appointmentValue").value || 0),
+      notes: $("appointmentNotes").value.trim(),
+      updatedAt: serverTimestamp()
+    };
+
+    if (!appointment.clientId || !appointment.professionalId ||
+        !appointment.serviceId || !appointment.date || !appointment.time) {
+      notify("Preencha os campos obrigatórios.", "error");
+      return;
+    }
+
+    if (appointment.duration < 5 || appointment.duration > 600) {
+      notify("A duração deve estar entre 5 e 600 minutos.", "error");
+      return;
+    }
+
+    if (!validateAppointment(appointment, id)) return;
+
+    try {
+      if (id) {
+        await updateDoc(doc(salonCollection("agendamentos"), id), appointment);
+        notify("Marcação atualizada.");
+      } else {
+        await addDoc(salonCollection("agendamentos"), {
+          ...appointment,
+          createdAt: serverTimestamp()
+        });
+        notify("Marcação criada.");
+      }
+
+      $("appointmentDialog")?.close();
+    } catch (error) {
+      showError(error, "Não foi possível guardar a marcação.");
+    }
+  });
+}
+
+/* =========================================
+   15. VALIDAÇÃO DE HORÁRIOS
+========================================= */
+
+function validateAppointment(appointment, currentId = null) {
+  const professional = state.professionals.find(
+    (person) => person.id === appointment.professionalId
+  );
+
+  if (!professional) {
+    notify("Selecione um profissional válido.", "error");
+    return false;
+  }
+
+  const start = timeToMinutes(appointment.time);
+  const end = start + appointment.duration;
+
+  const workingStart = timeToMinutes(professional.start || "08:00");
+  const workingEnd = timeToMinutes(professional.end || "17:00");
+
+  if (start < workingStart || end > workingEnd) {
+    notify(
+      `O horário deve respeitar o horário de trabalho: ${professional.start || "08:00"}–${professional.end || "17:00"}.`,
+      "error"
+    );
+    return false;
+  }
+
+  const hasConflict = state.appointments.some((existing) => {
+    if (existing.id === currentId) return false;
+    if (existing.professionalId !== appointment.professionalId) return false;
+    if (existing.date !== appointment.date) return false;
+    if (["Cancelado", "Não compareceu"].includes(existing.status)) return false;
+
+    const existingStart = timeToMinutes(existing.time);
+    const existingEnd = existingStart + Number(existing.duration || 30);
+
+    const buffer = Number(state.bufferMinutes || 0);
+
+    return start < existingEnd + buffer && end + buffer > existingStart;
+  });
+
+  if (hasConflict) {
+    notify("Este profissional já tem uma marcação nesse horário ou no intervalo de segurança.", "error");
+    return false;
+  }
+
+  return true;
+}
+
+/* =========================================
+   16. APAGAR MARCAÇÃO
+========================================= */
+
+function setupDeleteAppointment() {
+  $("deleteAppointmentBtn")?.addEventListener("click", async () => {
+    const id = $("appointmentId")?.value;
+
+    if (!id) return;
+
+    if (!confirm("Tem a certeza de que pretende apagar esta marcação?")) return;
+
+    try {
+      await deleteDoc(doc(salonCollection("agendamentos"), id));
+      $("appointmentDialog")?.close();
+      notify("Marcação apagada.");
+    } catch (error) {
+      showError(error, "Não foi possível apagar a marcação.");
+    }
+  });
+}
+
+/* =========================================
+   17. WHATSAPP
+   O envio da mensagem não confirma
+   automaticamente a marcação.
+========================================= */
+
+function setupWhatsAppButton() {
+  $("whatsappAppointmentBtn")?.addEventListener("click", () => {
+    const clientId = $("appointmentClient")?.value;
+    const client = state.clients.find((item) => item.id === clientId);
+
+    if (!client?.phone) {
+      notify("Este cliente não tem número de telefone registado.", "error");
+      return;
+    }
+
+    const phone = client.phone.replace(/\D/g, "");
+
+    if (!phone) {
+      notify("O número de telefone não é válido.", "error");
+      return;
+    }
+
+    const date = $("appointmentDate").value;
+    const time = $("appointmentTime").value;
+    const serviceId = $("appointmentService").value;
+    const service = state.services.find((item) => item.id === serviceId);
+
+    const formattedDate = date
+      ? new Intl.DateTimeFormat("pt-PT").format(parseDate(date))
+      : "";
+
+    const message =
+      `Olá, ${client.name}! 😊\n\n` +
+      `Gostaríamos de confirmar a sua marcação:\n` +
+      `Serviço: ${service?.name || "Serviço"}\n` +
+      `Data: ${formattedDate}\n` +
+      `Hora: ${time}\n\n` +
+      `Por favor, responda a esta mensagem para confirmar. Obrigado!`;
+
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
+
+    notify("Mensagem preparada. A confirmação continua pendente da resposta do cliente.");
+  });
+}
+
+/* =========================================
+   18. CLIENTES
+========================================= */
+
+function setupClientForm() {
+  const form = $("clientForm");
+  if (!form) return;
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const name = $("clientName").value.trim();
     const phone = $("clientPhone").value.trim();
     const email = $("clientEmail").value.trim();
 
-    if (!name) return;
-
-    if (editingClientId) {
-        clients = clients.map(client =>
-            client.id === editingClientId
-                ? { ...client, name, phone, email }
-                : client
-        );
-
-        editingClientId = null;
-    } else {
-        clients.push({
-            id: createId(),
-            name,
-            phone,
-            email
-        });
+    if (!name) {
+      notify("Indique o nome do cliente.", "error");
+      return;
     }
 
-    saveAll();
+    try {
+      await addDoc(salonCollection("clientes"), {
+        name,
+        phone,
+        email,
+        createdAt: serverTimestamp()
+      });
 
-    $("clientForm").reset();
-    $("clientForm").querySelector('[type="submit"]').textContent =
-        "Adicionar cliente";
-
-    renderClients();
-    updateSelects();
-    renderDashboard();
-});
-
-function renderClients() {
-    $("clientsList").innerHTML = clients.length
-        ? clients.map(client => `
-            <div class="data-row">
-                <div>
-                    <strong>${escapeHTML(client.name)}</strong>
-                    <small>${escapeHTML(client.phone || "Sem telefone")} · ${escapeHTML(client.email || "Sem e-mail")}</small>
-                </div>
-
-                <div class="appointment-actions">
-                    <button class="secondary-button" data-edit-client="${client.id}">
-                        Editar
-                    </button>
-
-                    <button class="delete-button" data-delete-client="${client.id}">
-                        Excluir
-                    </button>
-                </div>
-            </div>
-        `).join("")
-        : '<div class="empty-state">Ainda não existem clientes.</div>';
+      form.reset();
+      notify("Cliente adicionado.");
+    } catch (error) {
+      showError(error, "Não foi possível adicionar o cliente.");
+    }
+  });
 }
 
-$("clientsList").addEventListener("click", event => {
-    const editButton = event.target.closest("[data-edit-client]");
-    const deleteButton = event.target.closest("[data-delete-client]");
+function renderClients() {
+  const list = $("clientsList");
+  if (!list) return;
 
-    if (editButton) {
-        const client = clients.find(
-            item => item.id === editButton.dataset.editClient
-        );
+  if (!state.clients.length) {
+    list.innerHTML = `<div class="empty-state"><strong>Sem clientes</strong>Os clientes adicionados aparecerão aqui.</div>`;
+    return;
+  }
 
-        if (!client) return;
+  list.innerHTML = state.clients
+    .slice()
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "pt"))
+    .map((client) => `
+      <div class="list-item">
+        <div>
+          <strong>${escapeHTML(client.name)}</strong>
+          <small>${escapeHTML(client.phone || "Sem telefone")} · ${escapeHTML(client.email || "Sem e-mail")}</small>
+        </div>
+        <button class="btn btn-small btn-danger" data-delete-client="${escapeHTML(client.id)}">Apagar</button>
+      </div>
+    `).join("");
 
-        editingClientId = client.id;
+  list.querySelectorAll("[data-delete-client]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteClient;
 
-        $("clientName").value = client.name;
-        $("clientPhone").value = client.phone || "";
-        $("clientEmail").value = client.email || "";
+      if (!confirm("Apagar este cliente?")) return;
 
-        $("clientForm").querySelector('[type="submit"]').textContent =
-            "Guardar alterações";
+      try {
+        await deleteDoc(doc(salonCollection("clientes"), id));
+        notify("Cliente apagado.");
+      } catch (error) {
+        showError(error, "Não foi possível apagar o cliente.");
+      }
+    });
+  });
+}
 
-        $("clientName").focus();
-    }
+/* =========================================
+   19. SERVIÇOS
+========================================= */
 
-    if (deleteButton) {
-        const id = deleteButton.dataset.deleteClient;
+function setupServiceForm() {
+  const form = $("serviceForm");
+  if (!form) return;
 
-        if (!confirm("Tens a certeza de que desejas excluir este cliente?")) {
-            return;
-        }
-
-        clients = clients.filter(client => client.id !== id);
-
-        if (editingClientId === id) {
-            editingClientId = null;
-            $("clientForm").reset();
-            $("clientForm").querySelector('[type="submit"]').textContent =
-                "Adicionar cliente";
-        }
-
-        saveAll();
-        renderClients();
-        updateSelects();
-        renderDashboard();
-    }
-});
-
-/* =====================================
-   SERVIÇOS
-===================================== */
-
-$("serviceForm").addEventListener("submit", event => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const name = $("serviceName").value.trim();
-    const duration = Number($("serviceDuration").value);
-    const price = Number($("servicePrice").value);
+    const duration = Number($("serviceDuration").value || 30);
+    const price = Number($("servicePrice").value || 0);
 
-    if (!name) return;
-
-    if (editingServiceId) {
-        services = services.map(service =>
-            service.id === editingServiceId
-                ? { ...service, name, duration, price }
-                : service
-        );
-
-        editingServiceId = null;
-    } else {
-        services.push({
-            id: createId(),
-            name,
-            duration,
-            price
-        });
+    if (!name) {
+      notify("Indique o nome do serviço.", "error");
+      return;
     }
 
-    saveAll();
+    if (duration < 5 || duration > 600 || price < 0) {
+      notify("Verifique a duração e o preço do serviço.", "error");
+      return;
+    }
 
-    $("serviceForm").reset();
-    $("serviceForm").querySelector('[type="submit"]').textContent =
-        "Adicionar serviço";
+    try {
+      await addDoc(salonCollection("servicos"), {
+        name,
+        duration,
+        price,
+        createdAt: serverTimestamp()
+      });
 
-    renderServices();
-    updateSelects();
-    renderDashboard();
-});
-
-function renderServices() {
-    $("servicesList").innerHTML = services.length
-        ? services.map(service => `
-            <div class="data-row">
-                <div>
-                    <strong>${escapeHTML(service.name)}</strong>
-                    <small>${service.duration} minutos · ${money(service.price)}</small>
-                </div>
-
-                <div class="appointment-actions">
-                    <button class="secondary-button" data-edit-service="${service.id}">
-                        Editar
-                    </button>
-
-                    <button class="delete-button" data-delete-service="${service.id}">
-                        Excluir
-                    </button>
-                </div>
-            </div>
-        `).join("")
-        : '<div class="empty-state">Ainda não existem serviços.</div>';
+      form.reset();
+      notify("Serviço adicionado.");
+    } catch (error) {
+      showError(error, "Não foi possível adicionar o serviço.");
+    }
+  });
 }
 
-$("servicesList").addEventListener("click", event => {
-    const editButton = event.target.closest("[data-edit-service]");
-    const deleteButton = event.target.closest("[data-delete-service]");
+function renderServices() {
+  const list = $("servicesList");
+  if (!list) return;
 
-    if (editButton) {
-        const service = services.find(
-            item => item.id === editButton.dataset.editService
-        );
+  if (!state.services.length) {
+    list.innerHTML = `<div class="empty-state"><strong>Sem serviços</strong>Adicione os serviços disponíveis no salão.</div>`;
+    return;
+  }
 
-        if (!service) return;
+  list.innerHTML = state.services.map((service) => `
+    <div class="list-item">
+      <div>
+        <strong>${escapeHTML(service.name)}</strong>
+        <small>${Number(service.duration || 0)} minutos · ${Number(service.price || 0).toFixed(2)} €</small>
+      </div>
+      <button class="btn btn-small btn-danger" data-delete-service="${escapeHTML(service.id)}">Apagar</button>
+    </div>
+  `).join("");
 
-        editingServiceId = service.id;
+  list.querySelectorAll("[data-delete-service]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteService;
 
-        $("serviceName").value = service.name;
-        $("serviceDuration").value = service.duration;
-        $("servicePrice").value = service.price;
+      if (!confirm("Apagar este serviço?")) return;
 
-        $("serviceForm").querySelector('[type="submit"]').textContent =
-            "Guardar alterações";
-    }
+      try {
+        await deleteDoc(doc(salonCollection("servicos"), id));
+        notify("Serviço apagado.");
+      } catch (error) {
+        showError(error, "Não foi possível apagar o serviço.");
+      }
+    });
+  });
+}
 
-    if (deleteButton) {
-        const id = deleteButton.dataset.deleteService;
+/* =========================================
+   20. PROFISSIONAIS
+========================================= */
 
-        if (!confirm("Tens a certeza de que desejas excluir este serviço?")) {
-            return;
-        }
+function setupProfessionalForm() {
+  const form = $("professionalForm");
+  if (!form) return;
 
-        services = services.filter(service => service.id !== id);
-
-        if (editingServiceId === id) {
-            editingServiceId = null;
-            $("serviceForm").reset();
-            $("serviceForm").querySelector('[type="submit"]').textContent =
-                "Adicionar serviço";
-        }
-
-        saveAll();
-        renderServices();
-        updateSelects();
-        renderDashboard();
-    }
-});
-
-/* =====================================
-   PROFISSIONAIS
-===================================== */
-
-$("professionalForm").addEventListener("submit", event => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const name = $("professionalName").value.trim();
-    const start = $("professionalStart").value;
-    const end = $("professionalEnd").value;
+    const start = $("professionalStart").value || "08:00";
+    const end = $("professionalEnd").value || "17:00";
 
-    if (!name) return;
-
-    if (start >= end) {
-        alert("A hora de fim deve ser posterior à hora de início.");
-        return;
+    if (!name) {
+      notify("Indique o nome do profissional.", "error");
+      return;
     }
 
-    if (editingProfessionalId) {
-        professionals = professionals.map(professional =>
-            professional.id === editingProfessionalId
-                ? { ...professional, name, start, end }
-                : professional
-        );
-
-        editingProfessionalId = null;
-    } else {
-        professionals.push({
-            id: createId(),
-            name,
-            start,
-            end
-        });
+    if (timeToMinutes(start) >= timeToMinutes(end)) {
+      notify("O fim do horário deve ser posterior ao início.", "error");
+      return;
     }
 
-    saveAll();
+    try {
+      await addDoc(salonCollection("profissionais"), {
+        name,
+        start,
+        end,
+        active: true,
+        createdAt: serverTimestamp()
+      });
 
-    $("professionalForm").reset();
-    $("professionalForm").querySelector('[type="submit"]').textContent =
-        "Adicionar profissional";
-
-    renderProfessionals();
-    updateSelects();
-    renderDashboard();
-});
+      form.reset();
+      notify("Profissional adicionado.");
+    } catch (error) {
+      showError(error, "Não foi possível adicionar o profissional.");
+    }
+  });
+}
 
 function renderProfessionals() {
-    $("professionalsList").innerHTML = professionals.length
-        ? professionals.map(professional => `
-            <div class="data-row">
-                <div>
-                    <strong>${escapeHTML(professional.name)}</strong>
-                    <small>Horário: ${professional.start} às ${professional.end}</small>
-                </div>
+  const list = $("professionalsList");
+  if (!list) return;
 
-                <div class="appointment-actions">
-                    <button class="secondary-button" data-edit-professional="${professional.id}">
-                        Editar
-                    </button>
+  if (!state.professionals.length) {
+    list.innerHTML = `<div class="empty-state"><strong>Sem profissionais</strong>Adicione os profissionais do salão.</div>`;
+    return;
+  }
 
-                    <button class="delete-button" data-delete-professional="${professional.id}">
-                        Excluir
-                    </button>
-                </div>
-            </div>
-        `).join("")
-        : '<div class="empty-state">Ainda não existem profissionais.</div>';
-}
+  list.innerHTML = state.professionals.map((person) => `
+    <div class="list-item">
+      <div>
+        <strong>${escapeHTML(person.name)}</strong>
+        <small>${escapeHTML(person.start || "08:00")} – ${escapeHTML(person.end || "17:00")}</small>
+      </div>
+      <button class="btn btn-small btn-danger" data-delete-professional="${escapeHTML(person.id)}">Apagar</button>
+    </div>
+  `).join("");
 
-$("professionalsList").addEventListener("click", event => {
-    const editButton = event.target.closest("[data-edit-professional]");
-    const deleteButton = event.target.closest("[data-delete-professional]");
+  list.querySelectorAll("[data-delete-professional]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteProfessional;
 
-    if (editButton) {
-        const professional = professionals.find(
-            item => item.id === editButton.dataset.editProfessional
-        );
+      const hasAppointments = state.appointments.some(
+        (appointment) => appointment.professionalId === id &&
+          !["Cancelado", "Não compareceu"].includes(appointment.status)
+      );
 
-        if (!professional) return;
+      if (hasAppointments) {
+        notify("Este profissional tem marcações associadas. Não pode ser apagado.", "error");
+        return;
+      }
 
-        editingProfessionalId = professional.id;
+      if (!confirm("Apagar este profissional?")) return;
 
-        $("professionalName").value = professional.name;
-        $("professionalStart").value = professional.start;
-        $("professionalEnd").value = professional.end;
-
-        $("professionalForm").querySelector('[type="submit"]').textContent =
-            "Guardar alterações";
-    }
-
-    if (deleteButton) {
-        const id = deleteButton.dataset.deleteProfessional;
-
-        if (!confirm("Tens a certeza de que desejas excluir esta profissional?")) {
-            return;
-        }
-
-        professionals = professionals.filter(
-            professional => professional.id !== id
-        );
-
-        if (editingProfessionalId === id) {
-            editingProfessionalId = null;
-            $("professionalForm").reset();
-            $("professionalForm").querySelector('[type="submit"]').textContent =
-                "Adicionar profissional";
-        }
-
-        saveAll();
-        renderProfessionals();
-        updateSelects();
-        renderDashboard();
-    }
-});
-
-/* =====================================
-   LISTAS DE SELEÇÃO
-===================================== */
-
-function updateSelects() {
-    $("appointmentClient").innerHTML =
-        '<option value="">Selecionar cliente</option>' +
-        clients.map(client =>
-            `<option value="${client.id}">${escapeHTML(client.name)}</option>`
-        ).join("");
-
-    $("appointmentProfessional").innerHTML =
-        '<option value="">Selecionar profissional</option>' +
-        professionals.map(professional =>
-            `<option value="${professional.id}">${escapeHTML(professional.name)}</option>`
-        ).join("");
-
-    $("appointmentService").innerHTML =
-        '<option value="">Selecionar serviço</option>' +
-        services.map(service =>
-            `<option value="${service.id}">${escapeHTML(service.name)}</option>`
-        ).join("");
-
-    const filter = $("agendaProfessionalFilter");
-    const selected = filter.value;
-
-    filter.innerHTML =
-        '<option value="">Todas as profissionais</option>' +
-        professionals.map(professional =>
-            `<option value="${professional.id}">${escapeHTML(professional.name)}</option>`
-        ).join("");
-
-    if (professionals.some(item => item.id === selected)) {
-        filter.value = selected;
-    }
-}
-
-$("appointmentService").addEventListener("change", () => {
-    const service = services.find(
-        item => item.id === $("appointmentService").value
-    );
-
-    if (!service) return;
-
-    $("appointmentDuration").value = service.duration;
-    $("appointmentValue").value = service.price;
-});
-
-/* =====================================
-   AGENDA — NAVEGAÇÃO
-===================================== */
-
-function setAgendaDate(value) {
-    agendaDate = value;
-    $("filterDate").value = value;
-
-    renderAppointments();
-}
-
-function changeAgendaDate(amount) {
-    const date = parseDate(agendaDate);
-
-    if (agendaView === "month") {
-        date.setMonth(date.getMonth() + amount, 1);
-    } else {
-        date.setDate(date.getDate() + amount);
-    }
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    setAgendaDate(`${year}-${month}-${day}`);
-}
-
-$("prevDateBtn").addEventListener("click", () => {
-    changeAgendaDate(-1);
-});
-
-$("nextDateBtn").addEventListener("click", () => {
-    changeAgendaDate(1);
-});
-
-$("todayBtn").addEventListener("click", () => {
-    setAgendaDate(getToday());
-});
-
-$("filterDate").addEventListener("change", () => {
-    if (!$("filterDate").value) return;
-
-    agendaDate = $("filterDate").value;
-    renderAppointments();
-});
-
-$("agendaProfessionalFilter").addEventListener("change", () => {
-    renderAppointments();
-});
-
-/* =====================================
-   AGENDA — VISTA MÊS / DIA
-===================================== */
-
-document.querySelectorAll(".agenda-view").forEach(button => {
-    button.addEventListener("click", () => {
-        agendaView = button.dataset.view;
-
-        document.querySelectorAll(".agenda-view").forEach(item => {
-            item.classList.toggle("active", item === button);
-        });
-
-        renderAppointments();
+      try {
+        await deleteDoc(doc(salonCollection("profissionais"), id));
+        notify("Profissional apagado.");
+      } catch (error) {
+        showError(error, "Não foi possível apagar o profissional.");
+      }
     });
-});
-
-/* =====================================
-   AGENDA — CALENDÁRIO MENSAL
-===================================== */
-
-function renderCalendar() {
-    const date = parseDate(agendaDate);
-    const year = date.getFullYear();
-    const month = date.getMonth();
-
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const offset = (firstDay + 6) % 7;
-
-    const weekdays = [
-        "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"
-    ];
-
-    let html = `
-        <div class="calendar-grid">
-            ${weekdays.map(day => `
-                <div class="calendar-weekday">${day}</div>
-            `).join("")}
-    `;
-
-    for (let i = 0; i < offset; i++) {
-        html += '<div class="calendar-empty"></div>';
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const value = [
-            year,
-            String(month + 1).padStart(2, "0"),
-            String(day).padStart(2, "0")
-        ].join("-");
-
-        const hasAppointments = appointments.some(item => {
-            const professionalFilter = $("agendaProfessionalFilter").value;
-
-            return item.date === value &&
-                (!professionalFilter || item.professionalId === professionalFilter);
-        });
-
-        const isSelected = value === agendaDate;
-        const isToday = value === getToday();
-
-        html += `
-            <button
-                type="button"
-                class="calendar-day
-                    ${isSelected ? "selected" : ""}
-                    ${isToday ? "today" : ""}
-                    ${hasAppointments ? "has-appointments" : ""}"
-                data-calendar-date="${value}">
-                <span>${day}</span>
-                ${hasAppointments ? '<i></i>' : ""}
-            </button>
-        `;
-    }
-
-    html += "</div>";
-
-    $("agendaCalendar").innerHTML = html;
+  });
 }
 
-$("agendaCalendar").addEventListener("click", event => {
-    const button = event.target.closest("[data-calendar-date]");
-
-    if (!button) return;
-
-    setAgendaDate(button.dataset.calendarDate);
-});
-
-/* =====================================
-   AGENDA — RENDERIZAÇÃO
-===================================== */
-
-function renderAppointments() {
-    const selectedDate = agendaDate;
-    const selectedProfessional = $("agendaProfessionalFilter").value;
-
-    const date = parseDate(selectedDate);
-
-    if (agendaView === "month") {
-        $("agendaCurrentLabel").textContent =
-            date.toLocaleDateString("pt-PT", {
-                month: "long",
-                year: "numeric"
-            });
-
-        $("agendaCalendar").hidden = false;
-        renderCalendar();
-    } else {
-        $("agendaCurrentLabel").textContent = formatDate(selectedDate);
-        $("agendaCalendar").hidden = true;
-    }
-
-    const filtered = appointments
-        .filter(item => item.date === selectedDate)
-        .filter(item =>
-            !selectedProfessional ||
-            item.professionalId === selectedProfessional
-        )
-        .sort((a, b) => a.time.localeCompare(b.time));
-
-    $("appointmentsList").innerHTML = filtered.length
-        ? filtered.map(item => `
-            <div class="appointment-card">
-                <div class="appointment-info">
-                    <strong>${escapeHTML(item.time)} — ${escapeHTML(item.clientName)}</strong>
-                    <span>${escapeHTML(item.serviceName)} · ${escapeHTML(item.professionalName)}</span>
-                    <small>${escapeHTML(item.date)} · ${escapeHTML(item.status)}</small>
-                    <small>${money(item.value)}</small>
-                    ${item.notes ? `<small>${escapeHTML(item.notes)}</small>` : ""}
-                </div>
-
-                <div class="appointment-actions">
-                    <button class="secondary-button" data-edit-appointment="${item.id}">
-                        Editar
-                    </button>
-
-                    <button class="whatsapp-button" data-whatsapp="${item.id}">
-                        WhatsApp
-                    </button>
-
-                    <button class="delete-button" data-delete-appointment="${item.id}">
-                        Eliminar
-                    </button>
-                </div>
-            </div>
-        `).join("")
-        : '<div class="empty-state">Não existem agendamentos para esta data.</div>';
-}
-
-/* =====================================
-   NOVO AGENDAMENTO
-===================================== */
-
-$("newAppointmentBtn").addEventListener("click", () => {
-    $("appointmentForm").reset();
-    $("appointmentId").value = "";
-    $("appointmentFormTitle").textContent = "Novo agendamento";
-    $("appointmentFormPanel").hidden = false;
-
-    $("appointmentDate").value = agendaDate;
-
-    updateSelects();
-
-    $("appointmentFormPanel").scrollIntoView({
-        behavior: "smooth"
-    });
-});
-
-$("cancelAppointmentBtn").addEventListener("click", () => {
-    $("appointmentFormPanel").hidden = true;
-});
-
-/* =====================================
-   EDITAR / ELIMINAR AGENDAMENTO
-===================================== */
-
-$("appointmentsList").addEventListener("click", event => {
-    const editButton = event.target.closest("[data-edit-appointment]");
-    const deleteButton = event.target.closest("[data-delete-appointment]");
-    const whatsappButton = event.target.closest("[data-whatsapp]");
-
-    if (editButton) {
-        editAppointment(editButton.dataset.editAppointment);
-    }
-
-    if (deleteButton) {
-        if (!confirm("Eliminar este agendamento?")) return;
-
-        appointments = appointments.filter(
-            item => item.id !== deleteButton.dataset.deleteAppointment
-        );
-
-        saveAll();
-        renderAppointments();
-        renderDashboard();
-    }
-
-    if (whatsappButton) {
-        sendWhatsApp(whatsappButton.dataset.whatsapp);
-    }
-});
-
-function editAppointment(id) {
-    const item = appointments.find(appointment => appointment.id === id);
-
-    if (!item) return;
-
-    updateSelects();
-
-    $("appointmentId").value = item.id;
-    $("appointmentClient").value = item.clientId;
-    $("appointmentProfessional").value = item.professionalId;
-    $("appointmentService").value = item.serviceId;
-    $("appointmentDate").value = item.date;
-    $("appointmentTime").value = item.time;
-    $("appointmentDuration").value = item.duration;
-    $("appointmentValue").value = item.value;
-    $("appointmentStatus").value = item.status;
-    $("appointmentNotes").value = item.notes || "";
-
-    $("appointmentFormTitle").textContent = "Editar agendamento";
-    $("appointmentFormPanel").hidden = false;
-
-    $("appointmentFormPanel").scrollIntoView({
-        behavior: "smooth"
-    });
-}
-
-/* =====================================
-   GUARDAR AGENDAMENTO
-===================================== */
-
-function timeToMinutes(time) {
-    const [hours, minutes] = time.split(":").map(Number);
-    return hours * 60 + minutes;
-}
-
-$("appointmentForm").addEventListener("submit", event => {
-    event.preventDefault();
-
-    const id = $("appointmentId").value;
-
-    const client = clients.find(
-        item => item.id === $("appointmentClient").value
-    );
-
-    const professional = professionals.find(
-        item => item.id === $("appointmentProfessional").value
-    );
-
-    const service = services.find(
-        item => item.id === $("appointmentService").value
-    );
-
-    if (!client || !professional || !service) {
-        alert("Seleciona um cliente, uma profissional e um serviço.");
-        return;
-    }
-
-    const date = $("appointmentDate").value;
-    const time = $("appointmentTime").value;
-    const duration = Number($("appointmentDuration").value);
-
-    if (!date || !time || duration <= 0) {
-        alert("Confirma a data, hora e duração.");
-        return;
-    }
-
-    const start = timeToMinutes(time);
-    const end = start + duration;
-
-    if (time < professional.start || end > timeToMinutes(professional.end)) {
-        alert("O horário está fora do horário de trabalho da profissional.");
-        return;
-    }
-
-    const conflict = appointments.some(item => {
-        if (
-            item.id === id ||
-            item.professionalId !== professional.id ||
-            item.date !== date ||
-            item.status === "Cancelado"
-        ) {
-            return false;
-        }
-
-        const otherStart = timeToMinutes(item.time);
-        const otherEnd = otherStart + Number(item.duration);
-
-        return start < otherEnd && end > otherStart;
-    });
-
-    if (conflict) {
-        alert("Esta profissional já tem um agendamento nesse horário.");
-        return;
-    }
-
-    const appointment = {
-        id: id || createId(),
-        clientId: client.id,
-        clientName: client.name,
-        clientPhone: client.phone,
-        professionalId: professional.id,
-        professionalName: professional.name,
-        serviceId: service.id,
-        serviceName: service.name,
-        date,
-        time,
-        duration,
-        value: Number($("appointmentValue").value || 0),
-        status: $("appointmentStatus").value,
-        notes: $("appointmentNotes").value.trim()
-    };
-
-    if (id) {
-        appointments = appointments.map(item =>
-            item.id === id ? appointment : item
-        );
-    } else {
-        appointments.push(appointment);
-    }
-
-    saveAll();
-
-    agendaDate = date;
-    $("filterDate").value = date;
-
-    $("appointmentFormPanel").hidden = true;
-
-    renderAppointments();
-    renderDashboard();
-
-    alert("Agendamento guardado com sucesso!");
-});
-
-/* =====================================
-   WHATSAPP
-===================================== */
-
-function sendWhatsApp(id) {
-    const appointment = appointments.find(item => item.id === id);
-
-    if (!appointment) return;
-
-    const phone = String(appointment.clientPhone || "").replace(/\D/g, "");
-
-    if (!phone) {
-        alert("Este cliente não tem telefone registado.");
-        return;
-    }
-
-    const message =
-        `Olá, ${appointment.clientName}! 😊\n\n` +
-        `Gostaríamos de confirmar o seu agendamento:\n` +
-        `Serviço: ${appointment.serviceName}\n` +
-        `Data: ${appointment.date}\n` +
-        `Hora: ${appointment.time}\n` +
-        `Profissional: ${appointment.professionalName}\n\n` +
-        `Aguardamos a sua confirmação. Obrigada!`;
-
-    const url =
-        `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-
-    window.open(url, "_blank", "noopener,noreferrer");
-}
-
-/* =====================================
-   INICIALIZAÇÃO
-===================================== */
-
-function initializeApp() {
-    updateSelects();
-
-    $("filterDate").value = agendaDate;
-
-    renderDashboard();
-    renderAppointments();
-    renderClients();
-    renderServices();
-    renderProfessionals();
-}
-
-initializeApp();
+/* =========================================
+   21. INICIALIZAÇÃO
+========================================= */
+
+hideLoading();
