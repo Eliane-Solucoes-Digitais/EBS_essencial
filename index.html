@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-PT">
 <head>
@@ -46,24 +47,30 @@
     </div>
 
     <nav class="main-nav" aria-label="Menu principal">
-      <button class="nav-link active" data-page="agenda"><span>▦</span> Agenda</button>
-      <button class="nav-link" data-page="clients"><span>♙</span> Clientes</button>
-      <button class="nav-link" data-page="services"><span>◇</span> Serviços</button>
-      <button class="nav-link" data-page="team"><span>♧</span> Profissionais</button>
-      <button class="nav-link" data-page="settings"><span>⚙</span> Definições</button>
+      <button type="button" class="nav-link active" data-page="agenda"><span>▦</span> Agenda</button>
+      <button type="button" class="nav-link" data-page="clients"><span>♙</span> Clientes</button>
+      <button type="button" class="nav-link" data-page="services"><span>◇</span> Serviços</button>
+      <button type="button" class="nav-link" data-page="team"><span>♧</span> Profissionais</button>
+      <button type="button" class="nav-link" data-page="settings"><span>⚙</span> Definições</button>
     </nav>
 
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
       <span>Ligação protegida</span>
-      <button id="logoutBtn" class="logout-button">Terminar sessão</button>
+      <button id="logoutBtn" class="logout-button" type="button">Terminar sessão</button>
     </div>
   </aside>
 
   <main class="main-content">
 
     <header class="topbar">
-      <button id="menuToggle" class="icon-button mobile-only" aria-label="Abrir menu">☰</button>
+      <button
+        type="button"
+        id="mobileMenuBtn"
+        class="icon-button mobile-only"
+        aria-label="Abrir menu"
+        aria-expanded="false"
+      >☰</button>
 
       <div>
         <p class="eyebrow">ESPAÇO DE TRABALHO</p>
@@ -84,23 +91,23 @@
           <h2>Agenda</h2>
           <p>Organize os atendimentos da equipa.</p>
         </div>
-        <button id="newAppointmentBtn" class="button primary">＋ Novo agendamento</button>
+        <button id="newAppointmentBtn" class="button primary" type="button">＋ Novo agendamento</button>
       </div>
 
       <div class="calendar-panel">
 
         <div class="calendar-toolbar">
           <div class="date-navigation">
-            <button id="prevDateBtn" class="icon-button" aria-label="Período anterior">‹</button>
-            <button id="todayBtn" class="button secondary">Hoje</button>
-            <button id="nextDateBtn" class="icon-button" aria-label="Período seguinte">›</button>
+            <button id="prevDateBtn" class="icon-button" type="button" aria-label="Período anterior">‹</button>
+            <button id="todayBtn" class="button secondary" type="button">Hoje</button>
+            <button id="nextDateBtn" class="icon-button" type="button" aria-label="Período seguinte">›</button>
             <h2 id="currentDateLabel"></h2>
           </div>
 
           <div class="view-switch" role="group" aria-label="Vista da agenda">
-            <button class="view-button active" data-view="day">Dia</button>
-            <button class="view-button" data-view="week">Semana</button>
-            <button class="view-button" data-view="month">Mês</button>
+            <button type="button" class="view-button active" data-view="day">Dia</button>
+            <button type="button" class="view-button" data-view="week">Semana</button>
+            <button type="button" class="view-button" data-view="month">Mês</button>
           </div>
         </div>
 
@@ -113,7 +120,7 @@
           <label>
             Profissional
             <select id="professionalFilter">
-              <option value="">Todas</option>
+              <option value="all">Todos</option>
             </select>
           </label>
         </div>
@@ -216,8 +223,8 @@
           </select>
         </label>
 
-        <button id="saveSettingsBtn" class="button primary">Guardar definições</button>
-        <p class="muted small">As definições são guardadas no espaço associado à sua conta.</p>
+        <button id="saveSettingsBtn" class="button primary" type="button">Guardar definições</button>
+        <p class="muted small">As definições serão guardadas quando a ligação ao espaço estiver configurada.</p>
       </div>
     </section>
 
