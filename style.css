@@ -1548,3 +1548,52 @@ button:focus-visible {
   background: #E8F4EF;
   border-left-color: #36866B;
 }
+
+/* ===== LOGÓTIPO EBS BEAUTY SYSTEMS ===== */
+
+.brand {
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 185px;
+  height: 125px;
+  margin: 0 auto 18px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 10px;
+}
+
+.sidebar .brand {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 5px 0 22px;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+  margin-bottom: 22px;
+}
+
+.sidebar .brand > div {
+  width: 100%;
+}
+
+.sidebar .brand strong {
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.sidebar .brand small {
+  color: #d6c5a5;
+  letter-spacing: 1px;
+}
+
+/* Ajuste para telemóveis */
+@media (max-width: 680px) {
+  .brand-logo {
+    max-width: 170px;
+    height: 115px;
+  }
+}
