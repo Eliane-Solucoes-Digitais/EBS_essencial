@@ -1310,3 +1310,75 @@ button:focus-visible {
     pointer-events: auto;
   }
 }
+
+/* =========================================
+   AJUSTE DA JANELA DE MARCAÇÃO NO TELEMÓVEL
+========================================= */
+
+@media (max-width: 680px) {
+
+  #appointmentDialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+
+    width: calc(100% - 24px);
+    max-width: 560px;
+
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  #appointmentDialog form {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #appointmentDialog .form-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  #appointmentDialog .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #fff;
+  }
+
+  #appointmentDialog .whatsapp-control {
+    margin: 16px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-soft);
+  }
+
+  #appointmentDialog .whatsapp-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #appointmentDialog .whatsapp-actions button {
+    width: 100%;
+    min-height: 44px;
+    white-space: normal;
+  }
+
+  #appointmentDialog .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: #fff;
+  }
+}
