@@ -298,24 +298,28 @@
 
     </div>
 
-    <label>
-      Observações
-      <textarea id="appointmentNotes" rows="3" placeholder="Notas internas (opcional)"></textarea>
-    </label>
 
+<label>
+  Observações
+  <textarea id="appointmentNotes" rows="3" placeholder="Notas internas (opcional)"></textarea>
+</label>
+
+<!-- CONTROLO DE CONFIRMAÇÃO WHATSAPP -->
 <div class="whatsapp-control">
-  <h3>Confirmação WhatsApp</h3>
 
-  <p id="whatsappStatus">
+  <h3>Confirmação pelo WhatsApp</h3>
+
+  <p id="whatsappStatus" class="whatsapp-status">
     Ainda não foi enviada nenhuma mensagem.
   </p>
 
   <div class="whatsapp-actions">
+
     <button
       type="button"
       id="whatsappAppointmentBtn"
       class="button whatsapp-button">
-      Enviar pelo WhatsApp
+      Enviar / Reenviar WhatsApp
     </button>
 
     <button
@@ -331,20 +335,22 @@
       class="button primary">
       Confirmar cliente
     </button>
+
   </div>
 </div>
 
 <div class="modal-actions">
-  <button type="button" id="cancelAppointment" class="button secondary">Cancelar</button>
-  <button type="submit" class="button primary">Guardar agendamento</button>
+  <button type="button" id="cancelAppointment" class="button secondary">
+    Cancelar
+  </button>
+
+  <button type="submit" class="button primary">
+    Guardar agendamento
+  </button>
 </div>
 
-    <div class="modal-actions">
-      <button type="button" id="cancelAppointment" class="button secondary">Cancelar</button>
-      <button type="submit" class="button primary">Guardar agendamento</button>
-    </div>
+<p id="appointmentError" class="error" role="alert"></p>
 
-    <p id="appointmentError" class="error" role="alert"></p>
 
   </form>
 </dialog>
