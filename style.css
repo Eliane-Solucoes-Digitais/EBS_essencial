@@ -1616,3 +1616,35 @@ button:focus-visible {
   align-items: center;
   text-align: center;
 }
+
+/* EBS — CORREÇÃO DEFINITIVA DO LOGÓTIPO */
+
+@media (max-width: 680px) {
+  #sidebar {
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
+  }
+
+  #sidebar .brand {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  #sidebar .brand-logo {
+    display: block !important;
+    width: 75px !important;
+    height: 75px !important;
+    max-width: 75px !important;
+    max-height: 75px !important;
+    min-width: 75px !important;
+    object-fit: contain !important;
+    flex: 0 0 75px !important;
+    margin: 10px auto !important;
+  }
+}
