@@ -1648,3 +1648,71 @@ button:focus-visible {
     margin: 10px auto !important;
   }
 }
+
+/* EBS — CABEÇALHO PROFISSIONAL */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar .eyebrow {
+  color: #B89B72;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.topbar h1 {
+  color: #243B53;
+  margin-top: 3px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.today-label {
+  padding: 9px 13px;
+  border: 1px solid #DCE3E9;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #243B53;
+  font-weight: 600;
+}
+
+.avatar {
+  background: #243B53;
+  color: #E8DCCB;
+  border: 2px solid #B89B72;
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar > div:first-of-type {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .topbar-right {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+    padding-left: 52px;
+  }
+
+  .today-label {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+}
