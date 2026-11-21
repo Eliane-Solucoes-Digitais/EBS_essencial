@@ -586,29 +586,35 @@ function appointmentButton(appointment, spanDuration = false) {
   const duration = Number(appointment.duration || 30);
   const height = Math.max(30, duration * (65 / 60) - 6);
 
+  const isShort = duration <= 30;
+
   const spanStyle = spanDuration
     ? `style="height:${height}px"`
     : "";
 
-  const spanClass = spanDuration ? " spans-duration" : "";
+  const spanClass = spanDuration
+    ? (isShort ? " spans-duration short-appointment" : " spans-duration")
+    : "";
 
   return `
     <button type="button"
       class="appointment-block${spanClass} status-${appointmentStatusClass(appointment.status)}"
       ${spanStyle}
       data-edit-appointment="${escapeHTML(appointment.id)}">
+
       <strong>
         ${escapeHTML(appointment.time || "")}
         · ${escapeHTML(getClientName(appointment.clientId))}
       </strong>
-      <small>${escapeHTML(getServiceName(appointment.serviceId))}</small>
-      <small>${escapeHTML(appointment.status || "Agendado")}</small>
-      <small>${whatsappLabels[whatsappStatus] || whatsappLabels.not_sent}</small>
+
+      ${isShort ? "" : `
+        <small>${escapeHTML(getServiceName(appointment.serviceId))}</small>
+        <small>${escapeHTML(appointment.status || "Agendado")}</small>
+        <small>${whatsappLabels[whatsappStatus] || whatsappLabels.not_sent}</small>
+      `}
     </button>
   `;
 }
-
-
 function attachAppointmentClicks(container) {
   container.querySelectorAll("[data-edit-appointment]").forEach((button) => {
     button.addEventListener("click", (event) => {
