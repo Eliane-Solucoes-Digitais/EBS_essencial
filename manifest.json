@@ -1,0 +1,13 @@
+{
+  "id": "./",
+  "name": "EBS Beauty Essencial",
+  "short_name": "EBS Beauty",
+  "description": "Gestão simples de agenda para espaços de beleza.",
+  "lang": "pt-PT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F5F7",
+  "theme_color": "#243B53"
+}
