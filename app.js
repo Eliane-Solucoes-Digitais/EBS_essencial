@@ -198,117 +198,52 @@ function clearData() {
 
 
 /* =========================================
-   6. AUTENTICAÇÃO
+   6. ACESSO DIRETO — MODO DE TESTE
+   Autenticação será ativada posteriormente.
 ========================================= */
 
-const loginForm = $("loginForm");
+state.user = null;
+state.salonId = null;
+
+state.salon = {
+  name: "EBS Beauty Essencial",
+  bufferMinutes: 0
+};
+
+function enterDemoMode() {
+  clearData();
+
+  state.user = null;
+  state.salonId = null;
+
+  state.salon = {
+    name: "EBS Beauty Essencial",
+    bufferMinutes: 0
+  };
+
+  showApp();
+  applySalonSettings();
+  setupNavigation();
+  setupAgenda();
+  setupForms();
+  setupMobileMenu();
+
+  notify("Modo de demonstração ativo.");
+}
 
 if (loginForm) {
-  loginForm.addEventListener("submit", async (event) => {
+  loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
-
-    const email = $("loginEmail")?.value.trim();
-    const password = $("loginPassword")?.value;
-
-    if (!email || !password) {
-      notify("Preencha o e-mail e a palavra-passe.", "error");
-      return;
-    }
-
-    const button = loginForm.querySelector('button[type="submit"]');
-    if (button) button.disabled = true;
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-
-    } catch (error) {
-      console.error("ERRO DE LOGIN:", error.code, error.message);
-
-      const messages = {
-        "auth/invalid-credential": "E-mail ou palavra-passe incorretos.",
-        "auth/user-not-found": "Utilizador não encontrado.",
-        "auth/wrong-password": "Palavra-passe incorreta.",
-        "auth/too-many-requests": "Demasiadas tentativas. Tente mais tarde.",
-        "auth/operation-not-allowed": "O método E-mail/Senha não está ativo.",
-        "auth/unauthorized-domain": "Este domínio não está autorizado no Firebase.",
-        "auth/invalid-api-key": "A chave de configuração do Firebase está incorreta.",
-        "auth/network-request-failed": "Falha de ligação à Internet."
-      };
-
-      notify(
-        messages[error.code] || `Erro Firebase: ${error.code || error.message}`,
-        "error"
-      );
-
-    } finally {
-      if (button) button.disabled = false;
-    }
+    notify("O login será ativado numa fase posterior.");
   });
 }
-
-const logoutBtn = $("logoutBtn");
 
 if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      showError(error, "Não foi possível terminar a sessão.");
-    }
-  });
+  logoutBtn.classList.add("hidden");
 }
 
-onAuthStateChanged(auth, async (user) => {
-  clearData();
-  state.user = user;
+enterDemoMode();
 
-  if (!user) {
-    showLogin();
-    hideLoading();
-    return;
-  }
-
-  try {
-    const profileSnapshot = await getDoc(userDocument(user.uid));
-
-    if (!profileSnapshot.exists()) {
-      throw new Error(
-        "O perfil deste utilizador ainda não está configurado. É necessário associar o utilizador a um salão no Firestore."
-      );
-    }
-
-    const profile = profileSnapshot.data();
-
-    if (!profile.salonId) {
-      throw new Error("O perfil não tem um salonId associado.");
-    }
-
-    state.salonId = profile.salonId;
-
-    const salonSnapshot = await getDoc(salonDocument());
-
-    if (!salonSnapshot.exists()) {
-      throw new Error("O salão associado não foi encontrado no Firestore.");
-    }
-
-    state.salon = salonSnapshot.data();
-    state.bufferMinutes = Number(state.salon.bufferMinutes || 0);
-
-    showApp();
-    applySalonSettings();
-    setupNavigation();
-    setupAgenda();
-    setupForms();
-    setupMobileMenu();
-    startDataListeners();
-
-  } catch (error) {
-    console.error("ERRO AO CARREGAR O SALÃO:", error);
-    showLogin();
-    hideLoading();
-    notify(error.message || "Não foi possível carregar o salão.", "error");
-  }
-});
 
 /* =========================================
    7. CARREGAMENTO DOS DADOS
