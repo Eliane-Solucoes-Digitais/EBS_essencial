@@ -1922,3 +1922,25 @@ button:focus-visible {
     background: #fff;
   }
 }
+/* MARCAÇÕES DE 30 MINUTOS */
+
+.appointment-block.short-appointment {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 3px 6px !important;
+  overflow: hidden !important;
+  white-space: nowrap;
+}
+
+.appointment-block.short-appointment strong {
+  display: block;
+  font-size: 11px !important;
+  line-height: 18px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appointment-block.short-appointment small {
+  display: none !important;
+}
