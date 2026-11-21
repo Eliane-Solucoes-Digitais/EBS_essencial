@@ -356,10 +356,19 @@ function openPage(page) {
     $("pageTitle").textContent = titles[page] || "EBS Essencial";
   }
 
-  $("sidebar")?.classList.remove("open");
+const sidebar = $("sidebar");
+const menuButton = $("mobileMenuBtn");
 
-  $("mobileMenuBtn")?.setAttribute("aria-expanded", "false");
+sidebar?.classList.remove("open");
+
+if (sidebar) {
+  sidebar.style.left = "";
 }
+
+menuButton?.setAttribute("aria-expanded", "false");
+false");
+}
+
 
 
 /* =========================================
