@@ -494,6 +494,7 @@ function moveCalendar(direction) {
   renderCalendar();
 }
 
+
 function renderCalendar() {
   const canvas = $("calendarCanvas");
   if (!canvas) return;
@@ -518,6 +519,7 @@ function renderCalendar() {
 
   if ($("todayLabel")) {
     $("todayLabel").textContent = formatTopbarDate(new Date());
+  }
 
   if (state.currentView === "day") {
     renderDayView(canvas);
@@ -527,6 +529,7 @@ function renderCalendar() {
     renderMonthView(canvas);
   }
 }
+
 
 function getVisibleProfessionals() {
   const selected = $("professionalFilter")?.value || "all";
