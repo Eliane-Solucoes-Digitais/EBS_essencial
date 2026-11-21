@@ -574,7 +574,8 @@ function appointmentStatusClass(status) {
   return classes[status] || "agendado";
 }
 
-function appointmentButton(appointment) {
+
+function appointmentButton(appointment, spanDuration = false) {
   const whatsappLabels = {
     not_sent: "WhatsApp: por enviar",
     pending: "WhatsApp: aguardando confirmação",
@@ -582,10 +583,19 @@ function appointmentButton(appointment) {
   };
 
   const whatsappStatus = appointment.whatsappStatus || "not_sent";
+  const duration = Number(appointment.duration || 30);
+  const height = Math.max(30, duration * (65 / 60) - 6);
+
+  const spanStyle = spanDuration
+    ? `style="height:${height}px"`
+    : "";
+
+  const spanClass = spanDuration ? " spans-duration" : "";
 
   return `
     <button type="button"
-      class="appointment-block status-${appointmentStatusClass(appointment.status)}"
+      class="appointment-block${spanClass} status-${appointmentStatusClass(appointment.status)}"
+      ${spanStyle}
       data-edit-appointment="${escapeHTML(appointment.id)}">
       <strong>
         ${escapeHTML(appointment.time || "")}
@@ -597,6 +607,7 @@ function appointmentButton(appointment) {
     </button>
   `;
 }
+
 
 function attachAppointmentClicks(container) {
   container.querySelectorAll("[data-edit-appointment]").forEach((button) => {
@@ -666,7 +677,7 @@ function renderDayView(canvas) {
                   data-slot-time="${String(hour).padStart(2, "0")}:00"
                   data-slot-professional="${escapeHTML(person.id)}">
 
-                  ${matching.map(appointmentButton).join("")}
+             ${matching.map((appointment) => appointmentButton(appointment, true)).join("")}
                 </div>
               `;
             }).join("")}
