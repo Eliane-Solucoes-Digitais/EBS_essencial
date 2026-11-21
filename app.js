@@ -196,6 +196,7 @@ function clearData() {
   state.salonId = null;
 }
 
+
 /* =========================================
    6. AUTENTICAÇÃO
 ========================================= */
@@ -219,15 +220,26 @@ if (loginForm) {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+
     } catch (error) {
+      console.error("ERRO DE LOGIN:", error.code, error.message);
+
       const messages = {
         "auth/invalid-credential": "E-mail ou palavra-passe incorretos.",
         "auth/user-not-found": "Utilizador não encontrado.",
         "auth/wrong-password": "Palavra-passe incorreta.",
-        "auth/too-many-requests": "Demasiadas tentativas. Tente mais tarde."
+        "auth/too-many-requests": "Demasiadas tentativas. Tente mais tarde.",
+        "auth/operation-not-allowed": "O método E-mail/Senha não está ativo.",
+        "auth/unauthorized-domain": "Este domínio não está autorizado no Firebase.",
+        "auth/invalid-api-key": "A chave de configuração do Firebase está incorreta.",
+        "auth/network-request-failed": "Falha de ligação à Internet."
       };
 
-      notify(messages[error.code] || "Não foi possível iniciar sessão.", "error");
+      notify(
+        messages[error.code] || `Erro Firebase: ${error.code || error.message}`,
+        "error"
+      );
+
     } finally {
       if (button) button.disabled = false;
     }
@@ -291,7 +303,7 @@ onAuthStateChanged(auth, async (user) => {
     startDataListeners();
 
   } catch (error) {
-    console.error(error);
+    console.error("ERRO AO CARREGAR O SALÃO:", error);
     showLogin();
     hideLoading();
     notify(error.message || "Não foi possível carregar o salão.", "error");
