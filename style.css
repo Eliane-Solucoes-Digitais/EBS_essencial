@@ -1284,3 +1284,29 @@ button:focus-visible {
     width: 100%;
   }
 }
+
+@media (max-width: 680px) {
+  #sidebar {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    left: -270px;
+    width: 250px;
+    height: 100vh;
+    z-index: 9999;
+    transition: left .25s ease;
+    overflow-y: auto;
+  }
+
+  #sidebar.open {
+    left: 0 !important;
+  }
+
+  #mobileMenuBtn {
+    position: relative;
+    z-index: 10000;
+    display: inline-flex;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+}
