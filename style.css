@@ -1776,3 +1776,83 @@ button:focus-visible {
     gap: 12px;
   }
 }
+
+/* =========================================
+   EBS — AJUSTE DA DATA DA AGENDA
+   COMPUTADOR E IPHONE
+========================================= */
+
+.date-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.date-navigation-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.current-date-label {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: #243B53;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+/* Ajuste para telemóveis */
+
+@media (max-width: 680px) {
+
+  .date-navigation {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 15px;
+    width: 100%;
+  }
+
+  .date-navigation-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .date-navigation-buttons .icon-button {
+    width: 46px;
+    height: 46px;
+    font-size: 23px;
+  }
+
+  .date-navigation-buttons #todayBtn {
+    min-width: 100px;
+    height: 46px;
+  }
+
+  .current-date-label {
+    display: block;
+    width: 100%;
+    max-width: 340px;
+    padding: 4px 8px 10px;
+    font-size: 21px;
+    line-height: 1.4;
+    text-align: center;
+    overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 380px) {
+  .current-date-label {
+    font-size: 19px;
+  }
+}
