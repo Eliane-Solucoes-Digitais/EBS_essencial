@@ -1483,3 +1483,68 @@ button:focus-visible {
     box-sizing: border-box !important;
   }
 }
+
+/* ===== EBS — IDENTIDADE VISUAL ===== */
+
+:root {
+  --primary: #243B53;
+  --primary-light: #344F6B;
+  --accent: #B89B72;
+  --accent-light: #E8DCCB;
+  --background: #F3F5F7;
+  --surface: #FFFFFF;
+  --surface-soft: #F7F9FB;
+  --text: #263746;
+  --muted: #75818C;
+  --line: #DCE3E9;
+}
+
+/* Botões principais */
+.button.primary {
+  background: #243B53;
+  color: #FFFFFF;
+  border-color: #243B53;
+}
+
+.button.primary:hover {
+  background: #344F6B;
+}
+
+/* Botões secundários */
+.button.secondary {
+  background: #FFFFFF;
+  color: #243B53;
+  border-color: #DCE3E9;
+}
+
+/* Botão de novo agendamento */
+#newAppointmentBtn {
+  background: #B89B72;
+  color: #FFFFFF;
+  border-color: #B89B72;
+}
+
+/* Separadores da agenda */
+.view-button.active {
+  background: #243B53;
+  color: #FFFFFF;
+}
+
+/* Cabeçalhos */
+.day-grid-header,
+.month-weekday {
+  background: #E8EDF2;
+  color: #243B53;
+}
+
+/* Cartões dos agendamentos */
+.appointment-block {
+  background: #EAF0F6;
+  border-left-color: #3D6685;
+  color: #243B53;
+}
+
+.appointment-block.status-confirmado {
+  background: #E8F4EF;
+  border-left-color: #36866B;
+}
