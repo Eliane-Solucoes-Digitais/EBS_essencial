@@ -100,12 +100,17 @@
       <div class="calendar-panel">
 
         <div class="calendar-toolbar">
-          <div class="date-navigation">
-            <button id="prevDateBtn" class="icon-button" type="button" aria-label="Período anterior">‹</button>
-            <button id="todayBtn" class="button secondary" type="button">Hoje</button>
-            <button id="nextDateBtn" class="icon-button" type="button" aria-label="Período seguinte">›</button>
-            <h2 id="currentDateLabel"></h2>
-          </div>
+         <div class="date-navigation">
+
+  <div class="date-navigation-buttons">
+    <button id="prevDateBtn" class="icon-button" type="button" aria-label="Período anterior">‹</button>
+    <button id="todayBtn" class="button secondary" type="button">Hoje</button>
+    <button id="nextDateBtn" class="icon-button" type="button" aria-label="Período seguinte">›</button>
+  </div>
+
+  <h2 id="currentDateLabel" class="current-date-label"></h2>
+
+</div>
 
           <div class="view-switch" role="group" aria-label="Vista da agenda">
             <button type="button" class="view-button active" data-view="day">Dia</button>
