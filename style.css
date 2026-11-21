@@ -1451,3 +1451,34 @@ button:focus-visible {
     min-height: 44px;
   }
 }
+
+/* CORREÇÃO FINAL DO ALINHAMENTO NO IPHONE */
+
+@media (max-width: 680px) {
+  dialog#appointmentDialog {
+    position: fixed !important;
+
+    top: 12px !important;
+    bottom: 12px !important;
+    left: 50% !important;
+    right: auto !important;
+
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    height: auto !important;
+    max-height: none !important;
+
+    margin: 0 !important;
+    transform: translateX(-50%) !important;
+
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  #appointmentDialog form {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
