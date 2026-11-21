@@ -1716,3 +1716,29 @@ button:focus-visible {
     padding: 8px 10px;
   }
 }
+
+/* EBS — ORGANIZAÇÃO DOS FILTROS DA AGENDA NO TELEMÓVEL */
+
+@media (max-width: 680px) {
+  .calendar-filters {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 12px;
+  }
+
+  .calendar-filters label {
+    display: block;
+    width: 100%;
+    margin: 0;
+  }
+
+  .calendar-filters input,
+  .calendar-filters select {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-top: 5px;
+  }
+}
