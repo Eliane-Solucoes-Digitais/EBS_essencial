@@ -331,6 +331,7 @@ function setupNavigation() {
   });
 }
 
+
 function openPage(page) {
   state.activePage = page;
 
@@ -356,17 +357,16 @@ function openPage(page) {
     $("pageTitle").textContent = titles[page] || "EBS Essencial";
   }
 
-const sidebar = $("sidebar");
-const menuButton = $("mobileMenuBtn");
+  const sidebar = $("sidebar");
+  const menuButton = $("mobileMenuBtn");
 
-sidebar?.classList.remove("open");
+  sidebar?.classList.remove("open");
 
-if (sidebar) {
-  sidebar.style.left = "";
-}
+  if (sidebar) {
+    sidebar.style.left = "";
+  }
 
-menuButton?.setAttribute("aria-expanded", "false");
-false");
+  menuButton?.setAttribute("aria-expanded", "false");
 }
 
 
