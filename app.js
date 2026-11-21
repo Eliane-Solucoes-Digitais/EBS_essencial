@@ -1471,15 +1471,8 @@ function renderProfessionals() {
     });
   });
 }
-
 /* =========================================
-   25. INICIALIZAÇÃO
+   25. INICIALIZAÇÃO ÚNICA
 ========================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
-  enterDemoMode();
-});
-
-if (document.readyState !== "loading") {
-  enterDemoMode();
-}
+enterDemoMode();
