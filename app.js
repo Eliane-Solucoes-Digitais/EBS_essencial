@@ -1168,7 +1168,7 @@ function validateAppointment(appointment, currentId = null) {
   return true;
 }
 
-/
+
 /* =========================================
    20. APAGAR MARCAÇÃO
 ========================================= */
