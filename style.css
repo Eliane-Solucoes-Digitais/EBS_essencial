@@ -1382,3 +1382,72 @@ button:focus-visible {
     background: #fff;
   }
 }
+
+/* =========================================
+   CORREÇÃO DA JANELA NO IPHONE
+========================================= */
+
+@media (max-width: 680px) {
+
+  #appointmentDialog {
+    position: fixed !important;
+
+    top: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    left: 12px !important;
+
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+
+    margin: auto !important;
+    transform: none !important;
+
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+
+    border-radius: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #appointmentDialog form {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #appointmentDialog .form-grid {
+    width: 100%;
+    padding: 16px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #appointmentDialog label {
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  #appointmentDialog input,
+  #appointmentDialog select,
+  #appointmentDialog textarea {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #appointmentDialog .whatsapp-control {
+    margin: 16px;
+    min-width: 0;
+  }
+
+  #appointmentDialog .whatsapp-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #appointmentDialog .whatsapp-actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
