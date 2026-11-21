@@ -1,51 +1,24 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+/* =========================================================
+   EBS BEAUTY ESSENCIAL
+   MODO DE DEMONSTRAÇÃO — VERSÃO DE DESENVOLVIMENTO
 
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+   Os dados são guardados localmente no navegador.
+   Não são enviados para o Firebase nesta versão.
+========================================================= */
 
 /* =========================================
-   1. CONFIGURAÇÃO FIREBASE
+   1. CONFIGURAÇÃO
 ========================================= */
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBg5gMODOjb0uTlBXu_sZ-V2X-xLLQfo3",
-  authDomain: "ebs-beauty-essencial-dev.firebaseapp.com",
-  projectId: "ebs-beauty-essencial-dev",
-  storageBucket: "ebs-beauty-essencial-dev.firebasestorage.app",
-  messagingSenderId: "247538792217",
-  appId: "1:247538792217:web:83549932a0c517d6087788"
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
-
-/* =========================================
-   2. ESTADO DA APLICAÇÃO
-========================================= */
+const DEMO_STORAGE_KEY = "ebs_beauty_essencial_demo_v1";
 
 const state = {
   user: null,
   salonId: null,
-  salon: {},
+  salon: {
+    name: "EBS Beauty Essencial"
+  },
   appointments: [],
   clients: [],
   services: [],
@@ -53,8 +26,7 @@ const state = {
   currentDate: new Date(),
   currentView: "day",
   activePage: "agenda",
-  bufferMinutes: 0,
-  unsubscribers: []
+  bufferMinutes: 0
 };
 
 const $ = (id) => document.getElementById(id);
@@ -62,19 +34,19 @@ const $ = (id) => document.getElementById(id);
 const loadingScreen = $("loadingScreen");
 const loginScreen = $("loginScreen");
 const appScreen = $("app");
+const loginForm = $("loginForm");
+
+/* =========================================
+   2. ECRÃS
+========================================= */
 
 function hideLoading() {
-  if (loadingScreen) loadingScreen.classList.add("hidden");
-}
-
-function showLogin() {
-  if (loginScreen) loginScreen.classList.remove("hidden");
-  if (appScreen) appScreen.classList.add("hidden");
+  loadingScreen?.classList.add("hidden");
 }
 
 function showApp() {
-  if (loginScreen) loginScreen.classList.add("hidden");
-  if (appScreen) appScreen.classList.remove("hidden");
+  loginScreen?.classList.add("hidden");
+  appScreen?.classList.remove("hidden");
   hideLoading();
 }
 
@@ -83,8 +55,7 @@ function showApp() {
 ========================================= */
 
 function notify(message, type = "success") {
-  const oldToast = document.querySelector(".toast");
-  if (oldToast) oldToast.remove();
+  document.querySelectorAll(".toast").forEach((item) => item.remove());
 
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
@@ -92,7 +63,9 @@ function notify(message, type = "success") {
 
   document.body.appendChild(toast);
 
-  setTimeout(() => toast.remove(), 3500);
+  setTimeout(() => {
+    toast.remove();
+  }, 3500);
 }
 
 function showError(error, fallback = "Ocorreu um erro.") {
@@ -106,19 +79,22 @@ function showError(error, fallback = "Ocorreu um erro.") {
 
 function dateKey(date) {
   const d = new Date(date);
+
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
-function parseDate(dateString) {
-  const [year, month, day] = dateString.split("-").map(Number);
+function parseDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
 
 function formatDate(date) {
   return new Intl.DateTimeFormat("pt-PT", {
+    weekday: "long",
     day: "2-digit",
     month: "long",
     year: "numeric"
@@ -130,10 +106,6 @@ function formatShortDate(date) {
     day: "2-digit",
     month: "2-digit"
   }).format(date);
-}
-
-function formatTime(time) {
-  return time || "--:--";
 }
 
 function timeToMinutes(time) {
@@ -164,69 +136,135 @@ function escapeHTML(value = "") {
   })[char]);
 }
 
+function createId() {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
 /* =========================================
-   5. CAMINHOS FIRESTORE
+   5. ARMAZENAMENTO LOCAL
 ========================================= */
 
-function salonDocument() {
-  return doc(db, "saloes", state.salonId);
+function saveData() {
+  const data = {
+    salon: state.salon,
+    bufferMinutes: state.bufferMinutes,
+    appointments: state.appointments,
+    clients: state.clients,
+    services: state.services,
+    professionals: state.professionals
+  };
+
+  try {
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    showError(error, "Não foi possível guardar os dados neste navegador.");
+  }
 }
 
-function userDocument(uid) {
-  return doc(db, "users", uid);
+function loadData() {
+  try {
+    const saved = localStorage.getItem(DEMO_STORAGE_KEY);
+
+    if (saved) {
+      const data = JSON.parse(saved);
+
+      state.salon = data.salon || { name: "EBS Beauty Essencial" };
+      state.bufferMinutes = Number(data.bufferMinutes || 0);
+      state.appointments = data.appointments || [];
+      state.clients = data.clients || [];
+      state.services = data.services || [];
+      state.professionals = data.professionals || [];
+
+      return;
+    }
+  } catch (error) {
+    console.error("Erro ao carregar os dados locais:", error);
+  }
+
+  createDemoData();
+  saveData();
 }
 
-function salonCollection(name) {
-  return collection(db, "saloes", state.salonId, name);
-}
+function createDemoData() {
+  const client1 = createId();
+  const client2 = createId();
 
-function stopListeners() {
-  state.unsubscribers.forEach((unsubscribe) => unsubscribe());
-  state.unsubscribers = [];
-}
+  const service1 = createId();
+  const service2 = createId();
 
-function clearData() {
-  stopListeners();
+  const professional1 = createId();
+  const professional2 = createId();
+
+  state.clients = [
+    {
+      id: client1,
+      name: "Maria Silva",
+      phone: "",
+      email: ""
+    },
+    {
+      id: client2,
+      name: "Joana Costa",
+      phone: "",
+      email: ""
+    }
+  ];
+
+  state.services = [
+    {
+      id: service1,
+      name: "Manicure",
+      duration: 45,
+      price: 20
+    },
+    {
+      id: service2,
+      name: "Pedicure",
+      duration: 60,
+      price: 25
+    }
+  ];
+
+  state.professionals = [
+    {
+      id: professional1,
+      name: "Ana",
+      start: "08:00",
+      end: "17:00",
+      active: true
+    },
+    {
+      id: professional2,
+      name: "Sofia",
+      start: "09:00",
+      end: "18:00",
+      active: true
+    }
+  ];
 
   state.appointments = [];
-  state.clients = [];
-  state.services = [];
-  state.professionals = [];
-  state.salon = {};
-  state.salonId = null;
 }
 
-
 /* =========================================
-   6. ACESSO DIRETO — MODO DE TESTE
-   Autenticação será ativada posteriormente.
+   6. MODO DE DEMONSTRAÇÃO
 ========================================= */
 
-state.user = null;
-state.salonId = null;
-
-state.salon = {
-  name: "EBS Beauty Essencial",
-  bufferMinutes: 0
-};
-
 function enterDemoMode() {
-  clearData();
+  loadData();
 
   state.user = null;
   state.salonId = null;
 
-  state.salon = {
-    name: "EBS Beauty Essencial",
-    bufferMinutes: 0
-  };
-
   showApp();
+
   applySalonSettings();
   setupNavigation();
   setupAgenda();
   setupForms();
   setupMobileMenu();
+  setupDialogButtons();
+
+  renderAll();
 
   notify("Modo de demonstração ativo.");
 }
@@ -234,124 +272,61 @@ function enterDemoMode() {
 if (loginForm) {
   loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    notify("O login será ativado numa fase posterior.");
+    notify("O acesso com login será ativado numa fase posterior.");
   });
 }
 
-if (logoutBtn) {
-  logoutBtn.classList.add("hidden");
-}
-
-enterDemoMode();
-
-
 /* =========================================
-   7. CARREGAMENTO DOS DADOS
-========================================= */
-
-function startDataListeners() {
-  stopListeners();
-
-  listenCollection("agendamentos", "appointments");
-  listenCollection("clientes", "clients");
-  listenCollection("servicos", "services");
-  listenCollection("profissionais", "professionals");
-}
-
-function listenCollection(collectionName, stateName) {
-  const ref = salonCollection(collectionName);
-
-  const unsubscribe = onSnapshot(
-    ref,
-    (snapshot) => {
-      state[stateName] = snapshot.docs.map((document) => ({
-        id: document.id,
-        ...document.data()
-      }));
-
-      if (stateName === "appointments") renderCalendar();
-      if (stateName === "clients") renderClients();
-      if (stateName === "services") {
-        renderServices();
-        refreshAppointmentOptions();
-      }
-      if (stateName === "professionals") {
-        renderProfessionals();
-        refreshAppointmentOptions();
-      }
-    },
-    (error) => {
-      console.error(`Erro na coleção ${collectionName}:`, error);
-      notify(`Não foi possível carregar ${collectionName}. Verifique as regras do Firestore.`, "error");
-    }
-  );
-
-  state.unsubscribers.push(unsubscribe);
-}
-
-/* =========================================
-   8. CONFIGURAÇÕES DO SALÃO
+   7. CONFIGURAÇÕES DO SALÃO
 ========================================= */
 
 function applySalonSettings() {
   const name = state.salon.name || "EBS Beauty Essencial";
 
-  const salonName = $("salonName");
-  if (salonName) salonName.textContent = name;
+  if ($("salonName")) {
+    $("salonName").textContent = name;
+  }
 
-  const settingName = $("settingSalonName");
-  if (settingName) settingName.value = name;
+  if ($("settingSalonName")) {
+    $("settingSalonName").value = name;
+  }
 
-  const bufferInput = $("bufferMinutes");
-  if (bufferInput) bufferInput.value = state.bufferMinutes;
+  if ($("bufferMinutes")) {
+    $("bufferMinutes").value = state.bufferMinutes;
+  }
 }
 
-const saveSettingsBtn = $("saveSettingsBtn");
+$("saveSettingsBtn")?.addEventListener("click", () => {
+  const name = $("settingSalonName")?.value.trim();
+  const buffer = Number($("bufferMinutes")?.value || 0);
 
-if (saveSettingsBtn) {
-  saveSettingsBtn.addEventListener("click", async () => {
-    if (!state.salonId) return;
+  if (!name) {
+    notify("Indique o nome do salão.", "error");
+    return;
+  }
 
-    const name = $("settingSalonName")?.value.trim();
-    const buffer = Number($("bufferMinutes")?.value || 0);
+  if (buffer < 0 || buffer > 120) {
+    notify("O intervalo deve estar entre 0 e 120 minutos.", "error");
+    return;
+  }
 
-    if (!name) {
-      notify("Indique o nome do salão.", "error");
-      return;
-    }
+  state.salon.name = name;
+  state.bufferMinutes = buffer;
 
-    if (buffer < 0 || buffer > 120) {
-      notify("O intervalo deve estar entre 0 e 120 minutos.", "error");
-      return;
-    }
+  saveData();
+  applySalonSettings();
 
-    try {
-      await updateDoc(salonDocument(), {
-        name,
-        bufferMinutes: buffer,
-        updatedAt: serverTimestamp()
-      });
-
-      state.salon.name = name;
-      state.bufferMinutes = buffer;
-
-      applySalonSettings();
-      notify("Configurações guardadas.");
-    } catch (error) {
-      showError(error, "Não foi possível guardar as configurações.");
-    }
-  });
-}
+  notify("Configurações guardadas.");
+});
 
 /* =========================================
-   9. NAVEGAÇÃO
+   8. NAVEGAÇÃO
 ========================================= */
 
 function setupNavigation() {
   document.querySelectorAll("[data-page]").forEach((button) => {
     button.addEventListener("click", () => {
-      const page = button.dataset.page;
-      openPage(page);
+      openPage(button.dataset.page);
     });
   });
 }
@@ -363,8 +338,7 @@ function openPage(page) {
     element.classList.remove("active");
   });
 
-  const selectedPage = $(`page-${page}`);
-  if (selectedPage) selectedPage.classList.add("active");
+  $(`page-${page}`)?.classList.add("active");
 
   document.querySelectorAll("[data-page]").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === page);
@@ -378,25 +352,55 @@ function openPage(page) {
     settings: "Configurações"
   };
 
-  const title = $("pageTitle");
-  if (title) title.textContent = titles[page] || "EBS Essencial";
+  if ($("pageTitle")) {
+    $("pageTitle").textContent = titles[page] || "EBS Essencial";
+  }
 
-  document.querySelector(".sidebar")?.classList.remove("open");
+  $("sidebar")?.classList.remove("open");
+
+  $("mobileMenuBtn")?.setAttribute("aria-expanded", "false");
 }
 
 /* =========================================
-   10. MENU MOBILE
+   9. MENU MOBILE
 ========================================= */
 
 function setupMobileMenu() {
-  const menuButton = $("mobileMenuBtn");
+  const button = $("mobileMenuBtn");
   const sidebar = $("sidebar");
 
-  if (menuButton && sidebar) {
-    menuButton.addEventListener("click", () => {
-      sidebar.classList.toggle("open");
-    });
-  }
+  if (!button || !sidebar) return;
+
+  button.addEventListener("click", () => {
+    const opened = sidebar.classList.toggle("open");
+
+    button.setAttribute("aria-expanded", String(opened));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!sidebar.classList.contains("open")) return;
+
+    if (
+      !sidebar.contains(event.target) &&
+      !button.contains(event.target)
+    ) {
+      sidebar.classList.remove("open");
+      button.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+/* =========================================
+   10. ATUALIZAÇÃO GERAL
+========================================= */
+
+function renderAll() {
+  applySalonSettings();
+  renderCalendar();
+  renderClients();
+  renderServices();
+  renderProfessionals();
+  refreshAppointmentOptions();
 }
 
 /* =========================================
@@ -478,7 +482,13 @@ function renderCalendar() {
     }
   }
 
-  if (dateInput) dateInput.value = dateKey(state.currentDate);
+  if (dateInput) {
+    dateInput.value = dateKey(state.currentDate);
+  }
+
+  if ($("todayLabel")) {
+    $("todayLabel").textContent = formatDate(new Date());
+  }
 
   if (state.currentView === "day") {
     renderDayView(canvas);
@@ -492,7 +502,9 @@ function renderCalendar() {
 function getVisibleProfessionals() {
   const selected = $("professionalFilter")?.value || "all";
 
-  if (selected === "all") return state.professionals;
+  if (selected === "all") {
+    return state.professionals.filter((person) => person.active !== false);
+  }
 
   return state.professionals.filter((person) => person.id === selected);
 }
@@ -532,21 +544,48 @@ function appointmentStatusClass(status) {
 
 function appointmentButton(appointment) {
   return `
-    <button class="appointment-block status-${appointmentStatusClass(appointment.status)}"
+    <button type="button"
+      class="appointment-block status-${appointmentStatusClass(appointment.status)}"
       data-edit-appointment="${escapeHTML(appointment.id)}">
-      <strong>${escapeHTML(appointment.time || "")} · ${escapeHTML(getClientName(appointment.clientId))}</strong>
+      <strong>
+        ${escapeHTML(appointment.time || "")}
+        · ${escapeHTML(getClientName(appointment.clientId))}
+      </strong>
       <small>${escapeHTML(getServiceName(appointment.serviceId))}</small>
       <small>${escapeHTML(appointment.status || "Agendado")}</small>
     </button>
   `;
 }
 
+function attachAppointmentClicks(container) {
+  container.querySelectorAll("[data-edit-appointment]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      const appointment = state.appointments.find(
+        (item) => item.id === button.dataset.editAppointment
+      );
+
+      if (appointment) openAppointmentDialog(appointment);
+    });
+  });
+}
+
+/* =========================================
+   12. VISTA DIÁRIA
+========================================= */
+
 function renderDayView(canvas) {
   const professionals = getVisibleProfessionals();
   const appointments = getAppointmentsForDate(state.currentDate);
 
   if (!professionals.length) {
-    canvas.innerHTML = `<div class="empty-state"><strong>Sem profissionais</strong>Adicione profissionais para começar a utilizar a agenda.</div>`;
+    canvas.innerHTML = `
+      <div class="empty-state">
+        <strong>Sem profissionais</strong>
+        Adicione profissionais na secção Equipa para começar a utilizar a agenda.
+      </div>
+    `;
     return;
   }
 
@@ -555,19 +594,25 @@ function renderDayView(canvas) {
 
   canvas.innerHTML = `
     <div class="day-grid">
-      <div class="day-grid-header" style="--professional-count:${professionals.length}">
+      <div class="day-grid-header"
+        style="--professional-count:${professionals.length}">
         <div>Hora</div>
         ${professionals.map((person) => `
           <div>${escapeHTML(person.name)}</div>
         `).join("")}
       </div>
 
-      <div class="day-grid-inner" style="--professional-count:${professionals.length}">
+      <div class="day-grid-inner"
+        style="--professional-count:${professionals.length}">
+
         ${Array.from({ length: endHour - startHour }, (_, index) => {
           const hour = startHour + index;
 
           return `
-            <div class="time-cell">${String(hour).padStart(2, "0")}:00</div>
+            <div class="time-cell">
+              ${String(hour).padStart(2, "0")}:00
+            </div>
+
             ${professionals.map((person) => {
               const matching = appointments.filter((appointment) => {
                 return appointment.professionalId === person.id &&
@@ -575,9 +620,11 @@ function renderDayView(canvas) {
               });
 
               return `
-                <div class="slot-cell" data-slot-date="${dateKey(state.currentDate)}"
+                <div class="slot-cell"
+                  data-slot-date="${dateKey(state.currentDate)}"
                   data-slot-time="${String(hour).padStart(2, "0")}:00"
                   data-slot-professional="${escapeHTML(person.id)}">
+
                   ${matching.map(appointmentButton).join("")}
                 </div>
               `;
@@ -588,12 +635,7 @@ function renderDayView(canvas) {
     </div>
   `;
 
-  canvas.querySelectorAll("[data-edit-appointment]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const appointment = state.appointments.find((item) => item.id === button.dataset.editAppointment);
-      if (appointment) openAppointmentDialog(appointment);
-    });
-  });
+  attachAppointmentClicks(canvas);
 
   canvas.querySelectorAll("[data-slot-date]").forEach((slot) => {
     slot.addEventListener("dblclick", () => {
@@ -607,14 +649,16 @@ function renderDayView(canvas) {
 }
 
 /* =========================================
-   12. VISTA SEMANAL
+   13. VISTA SEMANAL
 ========================================= */
 
 function getStartOfWeek(date) {
   const result = new Date(date);
   const day = result.getDay();
+
   result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
   result.setHours(0, 0, 0, 0);
+
   return result;
 }
 
@@ -624,6 +668,7 @@ function renderWeekView(canvas) {
 
   canvas.innerHTML = `
     <div class="week-grid">
+
       ${Array.from({ length: 7 }, (_, index) => {
         const day = addDays(start, index);
         const appointments = getAppointmentsForDate(day);
@@ -631,34 +676,41 @@ function renderWeekView(canvas) {
         return `
           <div class="week-day">
             <div class="week-day-header">
-              ${new Intl.DateTimeFormat("pt-PT", { weekday: "short" }).format(day)}
+              ${new Intl.DateTimeFormat("pt-PT", {
+                weekday: "short"
+              }).format(day)}
               <small>${formatShortDate(day)}</small>
             </div>
+
             ${appointments
-              .filter((appointment) => professionals.some((person) => person.id === appointment.professionalId))
-              .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+              .filter((appointment) => {
+                return professionals.some(
+                  (person) => person.id === appointment.professionalId
+                );
+              })
+              .sort((a, b) => {
+                return timeToMinutes(a.time) - timeToMinutes(b.time);
+              })
               .map((appointment) => `
                 <div class="week-event">
                   ${appointmentButton(appointment)}
-                  <small>${escapeHTML(getProfessionalName(appointment.professionalId))}</small>
+                  <small>
+                    ${escapeHTML(getProfessionalName(appointment.professionalId))}
+                  </small>
                 </div>
               `).join("")}
           </div>
         `;
       }).join("")}
+
     </div>
   `;
 
-  canvas.querySelectorAll("[data-edit-appointment]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const appointment = state.appointments.find((item) => item.id === button.dataset.editAppointment);
-      if (appointment) openAppointmentDialog(appointment);
-    });
-  });
+  attachAppointmentClicks(canvas);
 }
 
 /* =========================================
-   13. VISTA MENSAL
+   14. VISTA MENSAL
 ========================================= */
 
 function renderMonthView(canvas) {
@@ -675,98 +727,141 @@ function renderMonthView(canvas) {
 
   canvas.innerHTML = `
     <div class="month-grid">
-      ${weekdays.map((day) => `<div class="month-weekday">${day}</div>`).join("")}
+
+      ${weekdays.map((day) => `
+        <div class="month-weekday">${day}</div>
+      `).join("")}
 
       ${Array.from({ length: 42 }, (_, index) => {
         const day = addDays(gridStart, index);
+
         const appointments = getAppointmentsForDate(day).filter((appointment) => {
-          return professionals.some((person) => person.id === appointment.professionalId);
+          return professionals.some(
+            (person) => person.id === appointment.professionalId
+          );
         });
 
         const isToday = dateKey(day) === dateKey(new Date());
+        const outsideMonth = day.getMonth() !== month;
 
         return `
-          <div class="month-day ${isToday ? "today" : ""}">
+          <div class="month-day
+            ${isToday ? "today" : ""}
+            ${outsideMonth ? "outside-month" : ""}">
+
             <div class="month-day-number">${day.getDate()}</div>
+
             ${appointments.slice(0, 3).map((appointment) => `
-              <button class="month-event" data-edit-appointment="${escapeHTML(appointment.id)}">
-                ${escapeHTML(appointment.time)} ${escapeHTML(getClientName(appointment.clientId))}
+              <button type="button"
+                class="month-event"
+                data-edit-appointment="${escapeHTML(appointment.id)}">
+                ${escapeHTML(appointment.time)}
+                ${escapeHTML(getClientName(appointment.clientId))}
               </button>
             `).join("")}
-            ${appointments.length > 3 ? `<small>+${appointments.length - 3} mais</small>` : ""}
+
+            ${appointments.length > 3
+              ? `<small>+${appointments.length - 3} mais</small>`
+              : ""}
           </div>
         `;
       }).join("")}
+
     </div>
   `;
 
-  canvas.querySelectorAll("[data-edit-appointment]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const appointment = state.appointments.find((item) => item.id === button.dataset.editAppointment);
-      if (appointment) openAppointmentDialog(appointment);
-    });
-  });
+  attachAppointmentClicks(canvas);
 
   canvas.querySelectorAll(".month-day").forEach((element, index) => {
     element.addEventListener("dblclick", () => {
       const day = addDays(gridStart, index);
+
       state.currentDate = day;
       state.currentView = "day";
+
       document.querySelectorAll("[data-view]").forEach((button) => {
         button.classList.toggle("active", button.dataset.view === "day");
       });
+
       renderCalendar();
     });
   });
 }
 
 /* =========================================
-   14. FORMULÁRIO DE MARCAÇÕES
+   15. OPÇÕES DOS FORMULÁRIOS
 ========================================= */
 
 function refreshAppointmentOptions() {
   const clientSelect = $("appointmentClient");
   const professionalSelect = $("appointmentProfessional");
   const serviceSelect = $("appointmentService");
+  const filter = $("professionalFilter");
 
   if (clientSelect) {
     const selected = clientSelect.value;
-    clientSelect.innerHTML = `<option value="">Selecionar cliente</option>` +
-      state.clients.map((client) =>
-        `<option value="${escapeHTML(client.id)}">${escapeHTML(client.name)}</option>`
-      ).join("");
+
+    clientSelect.innerHTML =
+      `<option value="">Selecionar cliente</option>` +
+      state.clients.map((client) => `
+        <option value="${escapeHTML(client.id)}">
+          ${escapeHTML(client.name)}
+        </option>
+      `).join("");
+
     clientSelect.value = selected;
   }
 
   if (professionalSelect) {
     const selected = professionalSelect.value;
-    professionalSelect.innerHTML = `<option value="">Selecionar profissional</option>` +
-      state.professionals.map((person) =>
-        `<option value="${escapeHTML(person.id)}">${escapeHTML(person.name)}</option>`
-      ).join("");
+
+    professionalSelect.innerHTML =
+      `<option value="">Selecionar profissional</option>` +
+      state.professionals
+        .filter((person) => person.active !== false)
+        .map((person) => `
+          <option value="${escapeHTML(person.id)}">
+            ${escapeHTML(person.name)}
+          </option>
+        `).join("");
+
     professionalSelect.value = selected;
   }
 
   if (serviceSelect) {
     const selected = serviceSelect.value;
-    serviceSelect.innerHTML = `<option value="">Selecionar serviço</option>` +
-      state.services.map((service) =>
-        `<option value="${escapeHTML(service.id)}">${escapeHTML(service.name)}</option>`
-      ).join("");
+
+    serviceSelect.innerHTML =
+      `<option value="">Selecionar serviço</option>` +
+      state.services.map((service) => `
+        <option value="${escapeHTML(service.id)}">
+          ${escapeHTML(service.name)}
+        </option>
+      `).join("");
+
     serviceSelect.value = selected;
   }
 
-  const filter = $("professionalFilter");
-
   if (filter) {
-    const selected = filter.value;
-    filter.innerHTML = `<option value="all">Todos os profissionais</option>` +
-      state.professionals.map((person) =>
-        `<option value="${escapeHTML(person.id)}">${escapeHTML(person.name)}</option>`
-      ).join("");
-    filter.value = selected || "all";
+    const selected = filter.value || "all";
+
+    filter.innerHTML =
+      `<option value="all">Todos os profissionais</option>` +
+      state.professionals
+        .filter((person) => person.active !== false)
+        .map((person) => `
+          <option value="${escapeHTML(person.id)}">
+            ${escapeHTML(person.name)}
+          </option>
+        `).join("");
+
+    filter.value = selected;
   }
 }
+
+/* =========================================
+   16. JANELA DE MARCAÇÃO
+========================================= */
 
 function openAppointmentDialog(appointment = null, preset = {}) {
   const dialog = $("appointmentDialog");
@@ -777,13 +872,20 @@ function openAppointmentDialog(appointment = null, preset = {}) {
     return;
   }
 
+  refreshAppointmentOptions();
   form.reset();
 
   $("appointmentId").value = appointment?.id || "";
-  $("appointmentDate").value = appointment?.date || preset.date || dateKey(state.currentDate);
-  $("appointmentTime").value = appointment?.time || preset.time || "09:00";
+  $("appointmentDate").value =
+    appointment?.date || preset.date || dateKey(state.currentDate);
+
+  $("appointmentTime").value =
+    appointment?.time || preset.time || "09:00";
+
   $("appointmentClient").value = appointment?.clientId || "";
-  $("appointmentProfessional").value = appointment?.professionalId || preset.professionalId || "";
+  $("appointmentProfessional").value =
+    appointment?.professionalId || preset.professionalId || "";
+
   $("appointmentService").value = appointment?.serviceId || "";
   $("appointmentDuration").value = appointment?.duration || 30;
   $("appointmentStatus").value = appointment?.status || "Agendado";
@@ -791,24 +893,47 @@ function openAppointmentDialog(appointment = null, preset = {}) {
   $("appointmentNotes").value = appointment?.notes || "";
 
   const title = $("appointmentDialogTitle");
-  if (title) title.textContent = appointment ? "Editar marcação" : "Nova marcação";
 
-  const deleteButton = $("deleteAppointmentBtn");
-  if (deleteButton) {
-    deleteButton.classList.toggle("hidden", !appointment);
+  if (title) {
+    title.textContent = appointment ? "Editar marcação" : "Nova marcação";
   }
 
-  const whatsappButton = $("whatsappAppointmentBtn");
-  if (whatsappButton) {
-    whatsappButton.classList.toggle("hidden", !appointment);
-  }
+  $("deleteAppointmentBtn")?.classList.toggle("hidden", !appointment);
+  $("whatsappAppointmentBtn")?.classList.toggle("hidden", !appointment);
 
   if (typeof dialog.showModal === "function") {
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
   } else {
     dialog.setAttribute("open", "");
   }
 }
+
+function closeAppointmentDialog() {
+  const dialog = $("appointmentDialog");
+
+  if (!dialog) return;
+
+  if (typeof dialog.close === "function") {
+    dialog.close();
+  } else {
+    dialog.removeAttribute("open");
+  }
+}
+
+function setupDialogButtons() {
+  $("closeAppointmentDialog")?.addEventListener("click", closeAppointmentDialog);
+  $("cancelAppointment")?.addEventListener("click", closeAppointmentDialog);
+
+  $("appointmentDialog")?.addEventListener("click", (event) => {
+    if (event.target === $("appointmentDialog")) {
+      closeAppointmentDialog();
+    }
+  });
+}
+
+/* =========================================
+   17. FORMULÁRIOS
+========================================= */
 
 function setupForms() {
   setupAppointmentForm();
@@ -819,11 +944,15 @@ function setupForms() {
   setupWhatsAppButton();
 }
 
+/* =========================================
+   18. GUARDAR MARCAÇÕES
+========================================= */
+
 function setupAppointmentForm() {
   const form = $("appointmentForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const id = $("appointmentId").value;
@@ -837,44 +966,60 @@ function setupAppointmentForm() {
       duration: Number($("appointmentDuration").value || 30),
       status: $("appointmentStatus").value || "Agendado",
       value: Number($("appointmentValue").value || 0),
-      notes: $("appointmentNotes").value.trim(),
-      updatedAt: serverTimestamp()
+      notes: $("appointmentNotes").value.trim()
     };
 
-    if (!appointment.clientId || !appointment.professionalId ||
-        !appointment.serviceId || !appointment.date || !appointment.time) {
-      notify("Preencha os campos obrigatórios.", "error");
+    if (
+      !appointment.clientId ||
+      !appointment.professionalId ||
+      !appointment.serviceId ||
+      !appointment.date ||
+      !appointment.time
+    ) {
+      notify("Preencha todos os campos obrigatórios.", "error");
       return;
     }
 
-    if (appointment.duration < 5 || appointment.duration > 600) {
-      notify("A duração deve estar entre 5 e 600 minutos.", "error");
+    if (
+      appointment.duration < 5 ||
+      appointment.duration > 600 ||
+      appointment.value < 0
+    ) {
+      notify("Verifique a duração e o valor da marcação.", "error");
       return;
     }
 
     if (!validateAppointment(appointment, id)) return;
 
-    try {
-      if (id) {
-        await updateDoc(doc(salonCollection("agendamentos"), id), appointment);
-        notify("Marcação atualizada.");
-      } else {
-        await addDoc(salonCollection("agendamentos"), {
-          ...appointment,
-          createdAt: serverTimestamp()
-        });
-        notify("Marcação criada.");
+    if (id) {
+      const index = state.appointments.findIndex((item) => item.id === id);
+
+      if (index !== -1) {
+        state.appointments[index] = {
+          ...state.appointments[index],
+          ...appointment
+        };
       }
 
-      $("appointmentDialog")?.close();
-    } catch (error) {
-      showError(error, "Não foi possível guardar a marcação.");
+      notify("Marcação atualizada.");
+    } else {
+      state.appointments.push({
+        id: createId(),
+        ...appointment,
+        createdAt: new Date().toISOString()
+      });
+
+      notify("Marcação criada.");
     }
+
+    saveData();
+    renderCalendar();
+    closeAppointmentDialog();
   });
 }
 
 /* =========================================
-   15. VALIDAÇÃO DE HORÁRIOS
+   19. VALIDAÇÃO DE HORÁRIOS
 ========================================= */
 
 function validateAppointment(appointment, currentId = null) {
@@ -898,6 +1043,7 @@ function validateAppointment(appointment, currentId = null) {
       `O horário deve respeitar o horário de trabalho: ${professional.start || "08:00"}–${professional.end || "17:00"}.`,
       "error"
     );
+
     return false;
   }
 
@@ -905,18 +1051,27 @@ function validateAppointment(appointment, currentId = null) {
     if (existing.id === currentId) return false;
     if (existing.professionalId !== appointment.professionalId) return false;
     if (existing.date !== appointment.date) return false;
-    if (["Cancelado", "Não compareceu"].includes(existing.status)) return false;
+
+    if (["Cancelado", "Não compareceu"].includes(existing.status)) {
+      return false;
+    }
 
     const existingStart = timeToMinutes(existing.time);
     const existingEnd = existingStart + Number(existing.duration || 30);
-
     const buffer = Number(state.bufferMinutes || 0);
 
-    return start < existingEnd + buffer && end + buffer > existingStart;
+    return (
+      start < existingEnd + buffer &&
+      end + buffer > existingStart
+    );
   });
 
   if (hasConflict) {
-    notify("Este profissional já tem uma marcação nesse horário ou no intervalo de segurança.", "error");
+    notify(
+      "Este profissional já tem uma marcação nesse horário ou no intervalo de segurança.",
+      "error"
+    );
+
     return false;
   }
 
@@ -924,37 +1079,42 @@ function validateAppointment(appointment, currentId = null) {
 }
 
 /* =========================================
-   16. APAGAR MARCAÇÃO
+   20. APAGAR MARCAÇÃO
 ========================================= */
 
 function setupDeleteAppointment() {
-  $("deleteAppointmentBtn")?.addEventListener("click", async () => {
+  $("deleteAppointmentBtn")?.addEventListener("click", () => {
     const id = $("appointmentId")?.value;
 
     if (!id) return;
 
-    if (!confirm("Tem a certeza de que pretende apagar esta marcação?")) return;
-
-    try {
-      await deleteDoc(doc(salonCollection("agendamentos"), id));
-      $("appointmentDialog")?.close();
-      notify("Marcação apagada.");
-    } catch (error) {
-      showError(error, "Não foi possível apagar a marcação.");
+    if (!confirm("Tem a certeza de que pretende apagar esta marcação?")) {
+      return;
     }
+
+    state.appointments = state.appointments.filter(
+      (appointment) => appointment.id !== id
+    );
+
+    saveData();
+    renderCalendar();
+    closeAppointmentDialog();
+
+    notify("Marcação apagada.");
   });
 }
 
 /* =========================================
-   17. WHATSAPP
-   O envio da mensagem não confirma
-   automaticamente a marcação.
+   21. WHATSAPP
 ========================================= */
 
 function setupWhatsAppButton() {
   $("whatsappAppointmentBtn")?.addEventListener("click", () => {
     const clientId = $("appointmentClient")?.value;
-    const client = state.clients.find((item) => item.id === clientId);
+
+    const client = state.clients.find(
+      (item) => item.id === clientId
+    );
 
     if (!client?.phone) {
       notify("Este cliente não tem número de telefone registado.", "error");
@@ -971,7 +1131,10 @@ function setupWhatsAppButton() {
     const date = $("appointmentDate").value;
     const time = $("appointmentTime").value;
     const serviceId = $("appointmentService").value;
-    const service = state.services.find((item) => item.id === serviceId);
+
+    const service = state.services.find(
+      (item) => item.id === serviceId
+    );
 
     const formattedDate = date
       ? new Intl.DateTimeFormat("pt-PT").format(parseDate(date))
@@ -990,19 +1153,21 @@ function setupWhatsAppButton() {
       "_blank"
     );
 
-    notify("Mensagem preparada. A confirmação continua pendente da resposta do cliente.");
+    notify(
+      "Mensagem preparada. A confirmação continua pendente da resposta do cliente."
+    );
   });
 }
 
 /* =========================================
-   18. CLIENTES
+   22. CLIENTES
 ========================================= */
 
 function setupClientForm() {
   const form = $("clientForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const name = $("clientName").value.trim();
@@ -1014,19 +1179,20 @@ function setupClientForm() {
       return;
     }
 
-    try {
-      await addDoc(salonCollection("clientes"), {
-        name,
-        phone,
-        email,
-        createdAt: serverTimestamp()
-      });
+    state.clients.push({
+      id: createId(),
+      name,
+      phone,
+      email
+    });
 
-      form.reset();
-      notify("Cliente adicionado.");
-    } catch (error) {
-      showError(error, "Não foi possível adicionar o cliente.");
-    }
+    saveData();
+    renderClients();
+    refreshAppointmentOptions();
+
+    form.reset();
+
+    notify("Cliente adicionado.");
   });
 }
 
@@ -1035,7 +1201,12 @@ function renderClients() {
   if (!list) return;
 
   if (!state.clients.length) {
-    list.innerHTML = `<div class="empty-state"><strong>Sem clientes</strong>Os clientes adicionados aparecerão aqui.</div>`;
+    list.innerHTML = `
+      <div class="empty-state">
+        <strong>Sem clientes</strong>
+        Os clientes adicionados aparecerão aqui.
+      </div>
+    `;
     return;
   }
 
@@ -1046,37 +1217,58 @@ function renderClients() {
       <div class="list-item">
         <div>
           <strong>${escapeHTML(client.name)}</strong>
-          <small>${escapeHTML(client.phone || "Sem telefone")} · ${escapeHTML(client.email || "Sem e-mail")}</small>
+          <small>
+            ${escapeHTML(client.phone || "Sem telefone")}
+            · ${escapeHTML(client.email || "Sem e-mail")}
+          </small>
         </div>
-        <button class="btn btn-small btn-danger" data-delete-client="${escapeHTML(client.id)}">Apagar</button>
+
+        <button type="button"
+          class="btn btn-small btn-danger"
+          data-delete-client="${escapeHTML(client.id)}">
+          Apagar
+        </button>
       </div>
     `).join("");
 
   list.querySelectorAll("[data-delete-client]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const id = button.dataset.deleteClient;
 
       if (!confirm("Apagar este cliente?")) return;
 
-      try {
-        await deleteDoc(doc(salonCollection("clientes"), id));
-        notify("Cliente apagado.");
-      } catch (error) {
-        showError(error, "Não foi possível apagar o cliente.");
+      const hasAppointments = state.appointments.some(
+        (appointment) => appointment.clientId === id
+      );
+
+      if (hasAppointments) {
+        notify(
+          "Este cliente tem marcações associadas. Apague ou altere primeiro essas marcações.",
+          "error"
+        );
+        return;
       }
+
+      state.clients = state.clients.filter((client) => client.id !== id);
+
+      saveData();
+      renderClients();
+      refreshAppointmentOptions();
+
+      notify("Cliente apagado.");
     });
   });
 }
 
 /* =========================================
-   19. SERVIÇOS
+   23. SERVIÇOS
 ========================================= */
 
 function setupServiceForm() {
   const form = $("serviceForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const name = $("serviceName").value.trim();
@@ -1093,19 +1285,20 @@ function setupServiceForm() {
       return;
     }
 
-    try {
-      await addDoc(salonCollection("servicos"), {
-        name,
-        duration,
-        price,
-        createdAt: serverTimestamp()
-      });
+    state.services.push({
+      id: createId(),
+      name,
+      duration,
+      price
+    });
 
-      form.reset();
-      notify("Serviço adicionado.");
-    } catch (error) {
-      showError(error, "Não foi possível adicionar o serviço.");
-    }
+    saveData();
+    renderServices();
+    refreshAppointmentOptions();
+
+    form.reset();
+
+    notify("Serviço adicionado.");
   });
 }
 
@@ -1114,7 +1307,12 @@ function renderServices() {
   if (!list) return;
 
   if (!state.services.length) {
-    list.innerHTML = `<div class="empty-state"><strong>Sem serviços</strong>Adicione os serviços disponíveis no salão.</div>`;
+    list.innerHTML = `
+      <div class="empty-state">
+        <strong>Sem serviços</strong>
+        Adicione os serviços disponíveis no salão.
+      </div>
+    `;
     return;
   }
 
@@ -1122,37 +1320,58 @@ function renderServices() {
     <div class="list-item">
       <div>
         <strong>${escapeHTML(service.name)}</strong>
-        <small>${Number(service.duration || 0)} minutos · ${Number(service.price || 0).toFixed(2)} €</small>
+        <small>
+          ${Number(service.duration || 0)} minutos
+          · ${Number(service.price || 0).toFixed(2)} €
+        </small>
       </div>
-      <button class="btn btn-small btn-danger" data-delete-service="${escapeHTML(service.id)}">Apagar</button>
+
+      <button type="button"
+        class="btn btn-small btn-danger"
+        data-delete-service="${escapeHTML(service.id)}">
+        Apagar
+      </button>
     </div>
   `).join("");
 
   list.querySelectorAll("[data-delete-service]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const id = button.dataset.deleteService;
 
       if (!confirm("Apagar este serviço?")) return;
 
-      try {
-        await deleteDoc(doc(salonCollection("servicos"), id));
-        notify("Serviço apagado.");
-      } catch (error) {
-        showError(error, "Não foi possível apagar o serviço.");
+      const hasAppointments = state.appointments.some(
+        (appointment) => appointment.serviceId === id
+      );
+
+      if (hasAppointments) {
+        notify(
+          "Este serviço tem marcações associadas. Altere primeiro essas marcações.",
+          "error"
+        );
+        return;
       }
+
+      state.services = state.services.filter((service) => service.id !== id);
+
+      saveData();
+      renderServices();
+      refreshAppointmentOptions();
+
+      notify("Serviço apagado.");
     });
   });
 }
 
 /* =========================================
-   20. PROFISSIONAIS
+   24. PROFISSIONAIS
 ========================================= */
 
 function setupProfessionalForm() {
   const form = $("professionalForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const name = $("professionalName").value.trim();
@@ -1169,20 +1388,22 @@ function setupProfessionalForm() {
       return;
     }
 
-    try {
-      await addDoc(salonCollection("profissionais"), {
-        name,
-        start,
-        end,
-        active: true,
-        createdAt: serverTimestamp()
-      });
+    state.professionals.push({
+      id: createId(),
+      name,
+      start,
+      end,
+      active: true
+    });
 
-      form.reset();
-      notify("Profissional adicionado.");
-    } catch (error) {
-      showError(error, "Não foi possível adicionar o profissional.");
-    }
+    saveData();
+    renderProfessionals();
+    refreshAppointmentOptions();
+    renderCalendar();
+
+    form.reset();
+
+    notify("Profissional adicionado.");
   });
 }
 
@@ -1191,7 +1412,12 @@ function renderProfessionals() {
   if (!list) return;
 
   if (!state.professionals.length) {
-    list.innerHTML = `<div class="empty-state"><strong>Sem profissionais</strong>Adicione os profissionais do salão.</div>`;
+    list.innerHTML = `
+      <div class="empty-state">
+        <strong>Sem profissionais</strong>
+        Adicione os profissionais do salão.
+      </div>
+    `;
     return;
   }
 
@@ -1199,14 +1425,22 @@ function renderProfessionals() {
     <div class="list-item">
       <div>
         <strong>${escapeHTML(person.name)}</strong>
-        <small>${escapeHTML(person.start || "08:00")} – ${escapeHTML(person.end || "17:00")}</small>
+        <small>
+          ${escapeHTML(person.start || "08:00")}
+          – ${escapeHTML(person.end || "17:00")}
+        </small>
       </div>
-      <button class="btn btn-small btn-danger" data-delete-professional="${escapeHTML(person.id)}">Apagar</button>
+
+      <button type="button"
+        class="btn btn-small btn-danger"
+        data-delete-professional="${escapeHTML(person.id)}">
+        Apagar
+      </button>
     </div>
   `).join("");
 
   list.querySelectorAll("[data-delete-professional]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const id = button.dataset.deleteProfessional;
 
       const hasAppointments = state.appointments.some(
@@ -1215,24 +1449,37 @@ function renderProfessionals() {
       );
 
       if (hasAppointments) {
-        notify("Este profissional tem marcações associadas. Não pode ser apagado.", "error");
+        notify(
+          "Este profissional tem marcações associadas. Não pode ser apagado.",
+          "error"
+        );
         return;
       }
 
       if (!confirm("Apagar este profissional?")) return;
 
-      try {
-        await deleteDoc(doc(salonCollection("profissionais"), id));
-        notify("Profissional apagado.");
-      } catch (error) {
-        showError(error, "Não foi possível apagar o profissional.");
-      }
+      state.professionals = state.professionals.filter(
+        (person) => person.id !== id
+      );
+
+      saveData();
+      renderProfessionals();
+      refreshAppointmentOptions();
+      renderCalendar();
+
+      notify("Profissional apagado.");
     });
   });
 }
 
 /* =========================================
-   21. INICIALIZAÇÃO
+   25. INICIALIZAÇÃO
 ========================================= */
 
-hideLoading();
+document.addEventListener("DOMContentLoaded", () => {
+  enterDemoMode();
+});
+
+if (document.readyState !== "loading") {
+  enterDemoMode();
+}
