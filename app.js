@@ -1,5 +1,3 @@
-
-
 /* =========================================================
    EBS BEAUTY ESSENCIAL
    MODO DE DEMONSTRAÇÃO — VERSÃO DE DESENVOLVIMENTO
@@ -1666,3 +1664,14 @@ function renderProfessionals() {
 ========================================= */
 
 enterDemoMode();
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js")
+      .then(() => {
+        console.log("EBS Beauty: aplicação PWA preparada.");
+      })
+      .catch((error) => {
+        console.error("Erro ao registar PWA:", error);
+      });
+  });
+}
