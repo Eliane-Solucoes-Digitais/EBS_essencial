@@ -1742,3 +1742,37 @@ button:focus-visible {
     margin-top: 5px;
   }
 }
+
+/* ===== AJUSTE DOS FILTROS DA AGENDA ===== */
+
+.calendar-filters {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.calendar-filters > label {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.calendar-filters input,
+.calendar-filters select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Telemóveis */
+@media (max-width: 680px) {
+  .calendar-filters {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
