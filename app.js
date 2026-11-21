@@ -361,21 +361,31 @@ function openPage(page) {
   $("mobileMenuBtn")?.setAttribute("aria-expanded", "false");
 }
 
+
 /* =========================================
-   9. MENU MOBILE
+   9. MENU MOBILE — CORREÇÃO
 ========================================= */
 
 function setupMobileMenu() {
   const button = $("mobileMenuBtn");
   const sidebar = $("sidebar");
 
-  if (!button || !sidebar) return;
+  if (!button || !sidebar) {
+    console.error("Botão ou menu lateral não encontrado.");
+    return;
+  }
 
-  button.addEventListener("click", () => {
-    const opened = sidebar.classList.toggle("open");
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
 
+    const opened = !sidebar.classList.contains("open");
+
+    sidebar.classList.toggle("open", opened);
     button.setAttribute("aria-expanded", String(opened));
-  });
+
+    sidebar.style.left = opened ? "0px" : "";
+  };
 
   document.addEventListener("click", (event) => {
     if (!sidebar.classList.contains("open")) return;
@@ -385,10 +395,12 @@ function setupMobileMenu() {
       !button.contains(event.target)
     ) {
       sidebar.classList.remove("open");
+      sidebar.style.left = "";
       button.setAttribute("aria-expanded", "false");
     }
   });
 }
+
 
 /* =========================================
    10. ATUALIZAÇÃO GERAL
