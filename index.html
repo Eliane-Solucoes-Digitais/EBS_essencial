@@ -292,7 +292,7 @@
       </label>
 
       <label>
-        Valor (€)
+        Valor (€) oi
         <input id="appointmentValue" type="number" min="0" step="0.01">
       </label>
 
@@ -302,6 +302,42 @@
       Observações
       <textarea id="appointmentNotes" rows="3" placeholder="Notas internas (opcional)"></textarea>
     </label>
+
+<div class="whatsapp-control">
+  <h3>Confirmação WhatsApp</h3>
+
+  <p id="whatsappStatus">
+    Ainda não foi enviada nenhuma mensagem.
+  </p>
+
+  <div class="whatsapp-actions">
+    <button
+      type="button"
+      id="whatsappAppointmentBtn"
+      class="button whatsapp-button">
+      Enviar pelo WhatsApp
+    </button>
+
+    <button
+      type="button"
+      id="markWhatsAppSentBtn"
+      class="button secondary">
+      Registar envio
+    </button>
+
+    <button
+      type="button"
+      id="confirmClientBtn"
+      class="button primary">
+      Confirmar cliente
+    </button>
+  </div>
+</div>
+
+<div class="modal-actions">
+  <button type="button" id="cancelAppointment" class="button secondary">Cancelar</button>
+  <button type="submit" class="button primary">Guardar agendamento</button>
+</div>
 
     <div class="modal-actions">
       <button type="button" id="cancelAppointment" class="button secondary">Cancelar</button>
