@@ -1,4 +1,5 @@
 
+
 /* =========================================================
    EBS BEAUTY ESSENCIAL
    MODO DE DEMONSTRAÇÃO — VERSÃO DE DESENVOLVIMENTO
@@ -40,6 +41,10 @@ const loginForm = $("loginForm");
    2. ECRÃS
 ========================================= */
 
+function hideLoading() {
+  loadingScreen?.setAttribute("hidden", "");
+  loadingScreen?.classList.add("hidden");
+}
 
 function showApp() {
   loginScreen?.setAttribute("hidden", "");
@@ -332,7 +337,6 @@ function setupNavigation() {
   });
 }
 
-
 function openPage(page) {
   state.activePage = page;
 
@@ -369,8 +373,6 @@ function openPage(page) {
 
   menuButton?.setAttribute("aria-expanded", "false");
 }
-
-
 
 /* =========================================
    9. MENU MOBILE — CORREÇÃO
@@ -411,7 +413,6 @@ function setupMobileMenu() {
   });
 }
 
-
 /* =========================================
    10. ATUALIZAÇÃO GERAL
 ========================================= */
@@ -424,6 +425,7 @@ function renderAll() {
   renderProfessionals();
   refreshAppointmentOptions();
 }
+
 
 /* =========================================
    11. AGENDA
@@ -565,6 +567,14 @@ function appointmentStatusClass(status) {
 }
 
 function appointmentButton(appointment) {
+  const whatsappLabels = {
+    not_sent: "WhatsApp: por enviar",
+    pending: "WhatsApp: aguardando confirmação",
+    confirmed: "WhatsApp: cliente confirmado"
+  };
+
+  const whatsappStatus = appointment.whatsappStatus || "not_sent";
+
   return `
     <button type="button"
       class="appointment-block status-${appointmentStatusClass(appointment.status)}"
@@ -575,6 +585,7 @@ function appointmentButton(appointment) {
       </strong>
       <small>${escapeHTML(getServiceName(appointment.serviceId))}</small>
       <small>${escapeHTML(appointment.status || "Agendado")}</small>
+      <small>${whatsappLabels[whatsappStatus] || whatsappLabels.not_sent}</small>
     </button>
   `;
 }
@@ -921,12 +932,51 @@ function openAppointmentDialog(appointment = null, preset = {}) {
   }
 
   $("deleteAppointmentBtn")?.classList.toggle("hidden", !appointment);
-  $("whatsappAppointmentBtn")?.classList.toggle("hidden", !appointment);
+
+  updateWhatsAppPanel(appointment);
 
   if (typeof dialog.showModal === "function") {
     if (!dialog.open) dialog.showModal();
   } else {
     dialog.setAttribute("open", "");
+  }
+}
+
+function updateWhatsAppPanel(appointment = null) {
+  const status = $("whatsappStatus");
+  const sendButton = $("whatsappAppointmentBtn");
+  const registerButton = $("markWhatsAppSentBtn");
+  const confirmButton = $("confirmClientBtn");
+
+  const saved = Boolean(appointment?.id);
+  const whatsappStatus = appointment?.whatsappStatus || "not_sent";
+
+  if (status) {
+    if (!saved) {
+      status.textContent = "Guarde a marcação antes de utilizar o WhatsApp.";
+    } else if (whatsappStatus === "confirmed") {
+      status.textContent = "Cliente confirmado pelo WhatsApp.";
+    } else if (whatsappStatus === "pending") {
+      const date = appointment.whatsappSentAt
+        ? new Date(appointment.whatsappSentAt).toLocaleString("pt-PT")
+        : "";
+
+      status.textContent = `Mensagem registada como enviada. ${date}`;
+    } else {
+      status.textContent = "Ainda não foi enviada nenhuma mensagem.";
+    }
+  }
+
+  if (sendButton) {
+    sendButton.disabled = !saved;
+  }
+
+  if (registerButton) {
+    registerButton.disabled = !saved || whatsappStatus === "confirmed";
+  }
+
+  if (confirmButton) {
+    confirmButton.disabled = !saved || whatsappStatus === "confirmed";
   }
 }
 
@@ -1017,10 +1067,21 @@ function setupAppointmentForm() {
       const index = state.appointments.findIndex((item) => item.id === id);
 
       if (index !== -1) {
+        const previous = state.appointments[index];
+
         state.appointments[index] = {
-          ...state.appointments[index],
-          ...appointment
+          ...previous,
+          ...appointment,
+          whatsappStatus: previous.whatsappStatus || "not_sent",
+          whatsappSentAt: previous.whatsappSentAt || null,
+          confirmedAt: previous.confirmedAt || null
         };
+
+        if (appointment.status === "Confirmado") {
+          state.appointments[index].whatsappStatus = "confirmed";
+          state.appointments[index].confirmedAt =
+            previous.confirmedAt || new Date().toISOString();
+        }
       }
 
       notify("Marcação atualizada.");
@@ -1028,6 +1089,13 @@ function setupAppointmentForm() {
       state.appointments.push({
         id: createId(),
         ...appointment,
+        whatsappStatus: appointment.status === "Confirmado"
+          ? "confirmed"
+          : "not_sent",
+        whatsappSentAt: null,
+        confirmedAt: appointment.status === "Confirmado"
+          ? new Date().toISOString()
+          : null,
         createdAt: new Date().toISOString()
       });
 
@@ -1100,6 +1168,7 @@ function validateAppointment(appointment, currentId = null) {
   return true;
 }
 
+/
 /* =========================================
    20. APAGAR MARCAÇÃO
 ========================================= */
@@ -1130,12 +1199,35 @@ function setupDeleteAppointment() {
    21. WHATSAPP
 ========================================= */
 
+function normalizeWhatsAppPhone(phone) {
+  let number = String(phone || "").replace(/\D/g, "");
+
+  if (number.startsWith("00")) {
+    number = number.slice(2);
+  }
+
+  if (number.length === 9) {
+    number = "351" + number;
+  }
+
+  return number;
+}
+
 function setupWhatsAppButton() {
   $("whatsappAppointmentBtn")?.addEventListener("click", () => {
-    const clientId = $("appointmentClient")?.value;
+    const appointmentId = $("appointmentId")?.value;
+
+    const appointment = state.appointments.find(
+      (item) => item.id === appointmentId
+    );
+
+    if (!appointment) {
+      notify("Guarde primeiro a marcação.", "error");
+      return;
+    }
 
     const client = state.clients.find(
-      (item) => item.id === clientId
+      (item) => item.id === appointment.clientId
     );
 
     if (!client?.phone) {
@@ -1143,23 +1235,21 @@ function setupWhatsAppButton() {
       return;
     }
 
-    const phone = client.phone.replace(/\D/g, "");
+    const phone = normalizeWhatsAppPhone(client.phone);
 
-    if (!phone) {
+    if (phone.length < 10) {
       notify("O número de telefone não é válido.", "error");
       return;
     }
 
-    const date = $("appointmentDate").value;
-    const time = $("appointmentTime").value;
-    const serviceId = $("appointmentService").value;
-
     const service = state.services.find(
-      (item) => item.id === serviceId
+      (item) => item.id === appointment.serviceId
     );
 
-    const formattedDate = date
-      ? new Intl.DateTimeFormat("pt-PT").format(parseDate(date))
+    const formattedDate = appointment.date
+      ? new Intl.DateTimeFormat("pt-PT").format(
+          parseDate(appointment.date)
+        )
       : "";
 
     const message =
@@ -1167,17 +1257,69 @@ function setupWhatsAppButton() {
       `Gostaríamos de confirmar a sua marcação:\n` +
       `Serviço: ${service?.name || "Serviço"}\n` +
       `Data: ${formattedDate}\n` +
-      `Hora: ${time}\n\n` +
+      `Hora: ${appointment.time}\n\n` +
       `Por favor, responda a esta mensagem para confirmar. Obrigado!`;
 
-    window.open(
-      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-      "_blank"
-    );
+    const whatsappUrl =
+      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, "_blank");
 
     notify(
-      "Mensagem preparada. A confirmação continua pendente da resposta do cliente."
+      "Mensagem preparada. Aguarde a resposta do cliente para confirmar."
     );
+  });
+
+  $("markWhatsAppSentBtn")?.addEventListener("click", () => {
+    const id = $("appointmentId")?.value;
+
+    const appointment = state.appointments.find(
+      (item) => item.id === id
+    );
+
+    if (!appointment) {
+      notify("Marcação não encontrada.", "error");
+      return;
+    }
+
+    if (appointment.whatsappStatus === "confirmed") {
+      notify("Este cliente já está confirmado.");
+      return;
+    }
+
+    appointment.whatsappStatus = "pending";
+    appointment.whatsappSentAt = new Date().toISOString();
+
+    saveData();
+    updateWhatsAppPanel(appointment);
+    renderCalendar();
+
+    notify("Envio da mensagem registado.");
+  });
+
+  $("confirmClientBtn")?.addEventListener("click", () => {
+    const id = $("appointmentId")?.value;
+
+    const appointment = state.appointments.find(
+      (item) => item.id === id
+    );
+
+    if (!appointment) {
+      notify("Marcação não encontrada.", "error");
+      return;
+    }
+
+    appointment.status = "Confirmado";
+    appointment.whatsappStatus = "confirmed";
+    appointment.confirmedAt = new Date().toISOString();
+
+    $("appointmentStatus").value = "Confirmado";
+
+    saveData();
+    updateWhatsAppPanel(appointment);
+    renderCalendar();
+
+    notify("Cliente confirmado com sucesso.");
   });
 }
 
@@ -1493,6 +1635,7 @@ function renderProfessionals() {
     });
   });
 }
+
 /* =========================================
    25. INICIALIZAÇÃO ÚNICA
 ========================================= */
