@@ -40,13 +40,14 @@ const loginForm = $("loginForm");
    2. ECRÃS
 ========================================= */
 
-function hideLoading() {
-  loadingScreen?.classList.add("hidden");
-}
 
 function showApp() {
+  loginScreen?.setAttribute("hidden", "");
   loginScreen?.classList.add("hidden");
+
+  appScreen?.removeAttribute("hidden");
   appScreen?.classList.remove("hidden");
+
   hideLoading();
 }
 
