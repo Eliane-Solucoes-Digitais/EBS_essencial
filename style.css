@@ -1856,3 +1856,69 @@ button:focus-visible {
     font-size: 19px;
   }
 }
+
+/* EBS — TAMANHO DISCRETO DOS AGENDAMENTOS */
+
+.appointment-block {
+  padding: 6px 7px !important;
+  overflow: visible;
+}
+
+.appointment-block strong {
+  font-size: 12px !important;
+  line-height: 1.3;
+}
+
+.appointment-block small {
+  font-size: 11px !important;
+  line-height: 1.3;
+  margin-top: 2px !important;
+}
+
+/* Fazer a marcação ocupar a duração real */
+
+.slot-cell:has(.appointment-block.spans-duration) {
+  z-index: 10;
+}
+
+.appointment-block.spans-duration {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  z-index: 5;
+  width: calc(100% - 6px);
+  max-width: calc(100% - 6px);
+  box-sizing: border-box;
+}
+
+/* EBS — JANELA DE MARCAÇÃO NO IPHONE */
+
+@media (max-width: 680px) {
+  dialog#appointmentDialog {
+    position: fixed !important;
+    inset: max(16px, env(safe-area-inset-top))
+           12px
+           max(16px, env(safe-area-inset-bottom))
+           12px !important;
+
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    transform: none !important;
+
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #appointmentDialog .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff;
+  }
+}
