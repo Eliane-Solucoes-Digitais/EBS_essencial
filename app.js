@@ -113,7 +113,13 @@ function formatShortDate(date) {
     month: "2-digit"
   }).format(date);
 }
-
+function formatTopbarDate(date) {
+  return new Intl.DateTimeFormat("pt-PT", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(date).replace(".", "");
+}
 function timeToMinutes(time) {
   const [hours, minutes] = (time || "00:00").split(":").map(Number);
   return hours * 60 + minutes;
@@ -511,8 +517,7 @@ function renderCalendar() {
   }
 
   if ($("todayLabel")) {
-    $("todayLabel").textContent = formatDate(new Date());
-  }
+    $("todayLabel").textContent = formatTopbarDate(new Date());
 
   if (state.currentView === "day") {
     renderDayView(canvas);
