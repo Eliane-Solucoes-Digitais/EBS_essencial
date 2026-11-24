@@ -7,6 +7,33 @@
 ========================================================= */
 
 /* =========================================
+   0. LIGAÇÃO AO FIREBASE
+========================================= */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+
+import { getAuth } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+import { getFirestore } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBg5gMODOjb0uTlBXu_sZ-V2X-xLLQfo3s",
+  authDomain: "ebs-beauty-essencial-dev.firebaseapp.com",
+  projectId: "ebs-beauty-essencial-dev",
+  storageBucket: "ebs-beauty-essencial-dev.firebasestorage.app",
+  messagingSenderId: "247538792217",
+  appId: "1:247538792217:web:83549932a0c517d6087788"
+};
+
+
+const firebaseApp = initializeApp(firebaseConfig);
+
+const auth = getAuth(firebaseApp);
+
+const db = getFirestore(firebaseApp);
+
+/* =========================================
    1. CONFIGURAÇÃO
 ========================================= */
 
