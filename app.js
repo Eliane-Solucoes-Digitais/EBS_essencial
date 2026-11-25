@@ -12,9 +12,22 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 
-import { getAuth } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-import { getFirestore } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  getDocs,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 
 const firebaseConfig = {
@@ -283,35 +296,35 @@ function createDemoData() {
 }
 
 /* =========================================
-   6. MODO DE DEMONSTRAÇÃO
+   6. AUTENTICAÇÃO FIREBASE
 ========================================= */
 
-function enterDemoMode() {
-  loadData();
-
-  state.user = null;
-  state.salonId = null;
-
-  showApp();
-
-  applySalonSettings();
-  setupNavigation();
-  setupAgenda();
-  setupForms();
-  setupMobileMenu();
-  setupDialogButtons();
-
-  renderAll();
-
-  notify("Modo de demonstração ativo.");
-}
-
 if (loginForm) {
-  loginForm.addEventListener("submit", (event) => {
+  loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    notify("O acesso com login será ativado numa fase posterior.");
+
+    const email = $("loginEmail")?.value.trim();
+    const password = $("loginPassword")?.value;
+    const errorMessage = $("loginError");
+
+    errorMessage.textContent = "";
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      notify("Autenticação realizada com sucesso.");
+    } catch (error) {
+      console.error("Erro no login:", error);
+      errorMessage.textContent = "E-mail ou palavra-passe incorretos.";
+    }
   });
 }
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    state.user = user;
+    notify("Utilizador autenticado.");
+  }
+});
 
 /* =========================================
    7. CONFIGURAÇÕES DO SALÃO
