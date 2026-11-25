@@ -1957,3 +1957,150 @@ button:focus-visible {
 #deleteAppointmentBtn.hidden {
   display: none !important;
 }
+
+
+/* =========================================
+   EBS — JANELA NOVO AGENDAMENTO
+   AJUSTE PARA COMPUTADOR E TELEMÓVEL
+========================================= */
+
+#appointmentDialog {
+  width: min(680px, calc(100vw - 40px));
+  max-width: 680px;
+  max-height: 90vh;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-sizing: border-box;
+}
+
+#appointmentDialog form {
+  width: 100%;
+  min-width: 0;
+}
+
+#appointmentDialog .modal-header {
+  padding: 20px 24px;
+  background: #fff;
+}
+
+#appointmentDialog .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  padding: 22px 24px 12px;
+}
+
+#appointmentDialog label {
+  display: block;
+  min-width: 0;
+  margin: 0;
+}
+
+#appointmentDialog input,
+#appointmentDialog select,
+#appointmentDialog textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+#appointmentDialog > form > label {
+  padding: 0 24px 18px;
+}
+
+#appointmentDialog .whatsapp-control {
+  margin: 0 24px 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+#appointmentDialog .whatsapp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+#appointmentDialog .whatsapp-actions .button {
+  flex: 1 1 155px;
+  min-width: 0;
+  white-space: normal;
+}
+
+#appointmentDialog .modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+
+@media (max-width: 680px) {
+  #appointmentDialog {
+    position: fixed !important;
+    inset: max(12px, env(safe-area-inset-top))
+           10px
+           max(12px, env(safe-area-inset-bottom))
+           10px !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    transform: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #appointmentDialog .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 15px 17px;
+  }
+
+  #appointmentDialog .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 13px;
+    padding: 16px 17px 10px;
+  }
+
+  #appointmentDialog > form > label {
+    padding: 0 17px 16px;
+  }
+
+  #appointmentDialog .whatsapp-control {
+    margin: 0 17px 16px;
+    padding: 13px;
+  }
+
+  #appointmentDialog .whatsapp-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  #appointmentDialog .whatsapp-actions .button,
+  #appointmentDialog .modal-actions .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  #appointmentDialog .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 9;
+    flex-direction: column-reverse;
+    padding: 13px 17px;
+  }
+}
+
