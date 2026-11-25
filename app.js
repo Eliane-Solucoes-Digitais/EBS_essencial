@@ -322,11 +322,16 @@ if (loginForm) {
   });
 }
 
-$("logoutBtn")?.addEventListener("click", async () => {
+document.addEventListener("click", async (event) => {
+  const logoutButton = event.target.closest("#logoutBtn");
+
+  if (!logoutButton) return;
+
   try {
     await signOut(auth);
     notify("Sessão terminada com sucesso.");
   } catch (error) {
+    console.error("Erro ao terminar sessão:", error);
     showError(error, "Não foi possível terminar a sessão.");
   }
 });
