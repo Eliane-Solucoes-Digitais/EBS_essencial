@@ -323,6 +323,8 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     state.user = user;
 
+     console.log("LOGIN FIREBASE CONFIRMADO:", user.uid);
+
     loadData();
 
     showApp();
