@@ -322,7 +322,27 @@ if (loginForm) {
 onAuthStateChanged(auth, (user) => {
   if (user) {
     state.user = user;
-    notify("Utilizador autenticado.");
+
+    loadData();
+
+    showApp();
+    applySalonSettings();
+    setupNavigation();
+    setupAgenda();
+    setupForms();
+    setupMobileMenu();
+    setupDialogButtons();
+
+    renderAll();
+
+    notify("Sessão iniciada com sucesso.");
+  } else {
+    state.user = null;
+
+    appScreen?.setAttribute("hidden", "");
+    loginScreen?.removeAttribute("hidden");
+
+    hideLoading();
   }
 });
 
