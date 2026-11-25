@@ -2104,17 +2104,7 @@ button:focus-visible {
   }
 }
 
-/* CONTROLO DOS ECRÃS DO EBS */
-#loadingScreen[hidden],
-#loginScreen[hidden],
-#app[hidden] {
+/* Garantir que os ecrãs ocultos não aparecem */
+[hidden] {
   display: none !important;
-}
-
-#loginScreen:not([hidden]) {
-  display: flex !important;
-}
-
-#app:not([hidden]) {
-  display: grid;
 }
