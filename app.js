@@ -1703,7 +1703,7 @@ function renderProfessionals() {
    25. INICIALIZAÇÃO ÚNICA
 ========================================= */
 
-enterDemoMode();
+hideLoading();
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./service-worker.js")
