@@ -312,6 +312,7 @@ if (loginForm) {
     errorMessage.textContent = "";
 
     try {
+      await setPersistence(auth, browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
       notify("Autenticação realizada com sucesso.");
     } catch (error) {
@@ -320,6 +321,15 @@ if (loginForm) {
     }
   });
 }
+
+$("logoutBtn")?.addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+    notify("Sessão terminada com sucesso.");
+  } catch (error) {
+    showError(error, "Não foi possível terminar a sessão.");
+  }
+});
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
