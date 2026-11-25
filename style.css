@@ -2104,8 +2104,17 @@ button:focus-visible {
   }
 }
 
-/* Respeitar os elementos ocultos */
-[hidden] {
+/* CONTROLO DOS ECRÃS DO EBS */
+#loadingScreen[hidden],
+#loginScreen[hidden],
+#app[hidden] {
   display: none !important;
 }
 
+#loginScreen:not([hidden]) {
+  display: flex !important;
+}
+
+#app:not([hidden]) {
+  display: grid;
+}
