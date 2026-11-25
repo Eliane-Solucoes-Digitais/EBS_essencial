@@ -356,13 +356,18 @@ onAuthStateChanged(auth, (user) => {
 
     notify("Sessão iniciada com sucesso.");
   } else {
-    state.user = null;
+  state.user = null;
 
-    appScreen?.setAttribute("hidden", "");
-    loginScreen?.removeAttribute("hidden");
+  appScreen?.setAttribute("hidden", "");
+  appScreen?.classList.add("hidden");
 
-    hideLoading();
-  }
+  loginScreen?.removeAttribute("hidden");
+  loginScreen?.classList.remove("hidden");
+
+  window.scrollTo(0, 0);
+
+  hideLoading();
+}
 });
 
 /* =========================================
