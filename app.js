@@ -520,21 +520,30 @@ function renderAll() {
 ========================================= */
 
 function setupAgenda() {
-  $("prevDateBtn")?.addEventListener("click", () => {
-    moveCalendar(-1);
-  });
+  const prevButton = $("prevDateBtn");
+  const nextButton = $("nextDateBtn");
+  const todayButton = $("todayBtn");
+  const dateInput = $("agendaDate");
+  const professionalFilter = $("professionalFilter");
+  const newAppointmentButton = $("newAppointmentBtn");
 
-  $("nextDateBtn")?.addEventListener("click", () => {
-    moveCalendar(1);
-  });
+  if (prevButton) {
+    prevButton.onclick = () => moveCalendar(-1);
+  }
 
-  $("todayBtn")?.addEventListener("click", () => {
-    state.currentDate = new Date();
-    renderCalendar();
-  });
+  if (nextButton) {
+    nextButton.onclick = () => moveCalendar(1);
+  }
+
+  if (todayButton) {
+    todayButton.onclick = () => {
+      state.currentDate = new Date();
+      renderCalendar();
+    };
+  }
 
   document.querySelectorAll("[data-view]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.onclick = () => {
       state.currentView = button.dataset.view;
 
       document.querySelectorAll("[data-view]").forEach((item) => {
@@ -542,21 +551,27 @@ function setupAgenda() {
       });
 
       renderCalendar();
-    });
+    };
   });
 
-  $("agendaDate")?.addEventListener("change", (event) => {
-    if (event.target.value) {
-      state.currentDate = parseDate(event.target.value);
-      renderCalendar();
-    }
-  });
+  if (dateInput) {
+    dateInput.onchange = (event) => {
+      if (event.target.value) {
+        state.currentDate = parseDate(event.target.value);
+        renderCalendar();
+      }
+    };
+  }
 
-  $("professionalFilter")?.addEventListener("change", renderCalendar);
+  if (professionalFilter) {
+    professionalFilter.onchange = renderCalendar;
+  }
 
-  $("newAppointmentBtn")?.addEventListener("click", () => {
-    openAppointmentDialog();
-  });
+  if (newAppointmentButton) {
+    newAppointmentButton.onclick = () => {
+      openAppointmentDialog();
+    };
+  }
 
   renderCalendar();
 }
