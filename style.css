@@ -2104,3 +2104,8 @@ button:focus-visible {
   }
 }
 
+/* Respeitar os elementos ocultos */
+[hidden] {
+  display: none !important;
+}
+
