@@ -213,29 +213,122 @@ function saveData() {
   }
 }
 
-function loadData() {
-  try {
-    const saved = localStorage.getItem(DEMO_STORAGE_KEY);
 
-    if (saved) {
-      const data = JSON.parse(saved);
-
-      state.salon = data.salon || { name: "EBS Beauty Essencial" };
-      state.bufferMinutes = Number(data.bufferMinutes || 0);
-      state.appointments = data.appointments || [];
-      state.clients = data.clients || [];
-      state.services = data.services || [];
-      state.professionals = data.professionals || [];
-
-      return;
-    }
-  } catch (error) {
-    console.error("Erro ao carregar os dados locais:", error);
+async function loadData() {
+  if (!state.user) {
+    throw new Error("É necessário iniciar sessão.");
   }
 
-  createDemoData();
-  saveData();
+  state.salonId = "principal";
+
+  const salonRef = doc(db, "saloes", state.salonId);
+  const salonSnap = await getDoc(salonRef);
+
+  if (!salonSnap.exists()) {
+    throw new Error("O salão principal não foi encontrado no Firestore.");
+  }
+
+  const salonData = salonSnap.data();
+
+  if (salonData.ownerUid !== state.user.uid) {
+    throw new Error("Este utilizador não tem acesso a este salão.");
+  }
+
+  state.salon = {
+    ...state.salon,
+    ...salonData,
+    name: salonData.name || salonData.nome || "EBS Beauty Essencial"
+  };
+
+  state.bufferMinutes = Number(salonData.bufferMinutes || 0);
+
+  const readCollection = async (name) => {
+    const snapshot = await getDocs(
+      collection(db, "saloes", state.salonId, name)
+    );
+
+    return snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data()
+    }));
+  };
+
+  const [clients, services, professionals, appointments] =
+    await Promise.all([
+      readCollection("clientes"),
+      readCollection("serviços"),
+      readCollection("profissionais"),
+      readCollection("agendamentos")
+    ]);
+
+  state.clients = clients.map((item) => ({
+    ...item,
+    name: item.name || item.nome || item["Nome do cliente"] || "",
+    phone: item.phone || item.telefone || "",
+    email: item.email || ""
+  }));
+
+  state.services = services.map((item) => ({
+    ...item,
+    name: item.name || item.nome || item["Nome do serviço"] || "",
+    duration: Number(item.duration || item.duração || 30),
+    price: Number(item.price ?? item.valor ?? 0)
+  }));
+
+  state.professionals = professionals.map((item) => ({
+    ...item,
+    name: item.name || item.nome || "",
+    start: item.start || item.inicio || "08:00",
+    end: item.end || item.fim || "17:00",
+    active: item.active !== false
+  }));
+
+  state.appointments = appointments.map((item) => {
+    const clientName =
+      item.clientName || item["Nome do cliente"] || item.nomeCliente || "";
+
+    const professionalName =
+      item.professionalName || item.ProfissionalNome ||
+      item.profissionalNome || "";
+
+    const serviceName =
+      item.serviceName || item.serviçoNome || item.servicoNome || "";
+
+    const client = state.clients.find(
+      (entry) => entry.name === clientName
+    );
+
+    const professional = state.professionals.find(
+      (entry) => entry.name === professionalName
+    );
+
+    const service = state.services.find(
+      (entry) => entry.name === serviceName
+    );
+
+    return {
+      ...item,
+      clientId: item.clientId || client?.id || "",
+      professionalId: item.professionalId || professional?.id || "",
+      serviceId: item.serviceId || service?.id || "",
+      date: item.date || item.dados || "",
+      time: item.time || item.hora || "",
+      duration: Number(item.duration || item.duração || 30),
+      status: item.status || item.estado || "Agendado",
+      value: Number(item.value ?? item.valor ?? 0),
+      notes: item.notes || item["observação"] || item.observacao || ""
+    };
+  });
+
+  console.log("EBS: dados carregados do Firestore.", {
+    salonId: state.salonId,
+    clients: state.clients.length,
+    services: state.services.length,
+    professionals: state.professionals.length,
+    appointments: state.appointments.length
+  });
 }
+
 
 function createDemoData() {
   const client1 = createId();
