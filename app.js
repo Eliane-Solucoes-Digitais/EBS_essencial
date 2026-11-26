@@ -429,39 +429,57 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-onAuthStateChanged(auth, (user) => {
+
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.user = user;
 
-     console.log("LOGIN FIREBASE CONFIRMADO:", user.uid);
+    console.log("LOGIN FIREBASE CONFIRMADO:", user.uid);
 
-    loadData();
+    try {
+      await loadData();
 
-    showApp();
-    applySalonSettings();
-    setupNavigation();
-    setupAgenda();
-    setupForms();
-    setupMobileMenu();
-    setupDialogButtons();
+      showApp();
+      applySalonSettings();
+      setupNavigation();
+      setupAgenda();
+      setupForms();
+      setupMobileMenu();
+      setupDialogButtons();
 
-    renderAll();
+      renderAll();
 
-    notify("Sessão iniciada com sucesso.");
+      notify("Sessão iniciada com sucesso.");
+    } catch (error) {
+      console.error("Erro ao carregar dados do Firestore:", error);
+
+      state.user = null;
+      await signOut(auth);
+
+      const errorMessage = $("loginError");
+
+      if (errorMessage) {
+        errorMessage.textContent =
+          "Não foi possível carregar os dados do salão. Verifique a configuração do Firebase.";
+      }
+
+      hideLoading();
+    }
   } else {
-  state.user = null;
+    state.user = null;
 
-  appScreen?.setAttribute("hidden", "");
-  appScreen?.classList.add("hidden");
+    appScreen?.setAttribute("hidden", "");
+    appScreen?.classList.add("hidden");
 
-  loginScreen?.removeAttribute("hidden");
-  loginScreen?.classList.remove("hidden");
+    loginScreen?.removeAttribute("hidden");
+    loginScreen?.classList.remove("hidden");
 
-  window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
 
-  hideLoading();
-}
+    hideLoading();
+  }
 });
+
 
 /* =========================================
    7. CONFIGURAÇÕES DO SALÃO
