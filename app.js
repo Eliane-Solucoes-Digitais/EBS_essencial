@@ -196,22 +196,73 @@ function createId() {
    5. ARMAZENAMENTO LOCAL
 ========================================= */
 
-function saveData() {
-  const data = {
-    salon: state.salon,
-    bufferMinutes: state.bufferMinutes,
-    appointments: state.appointments,
-    clients: state.clients,
-    services: state.services,
-    professionals: state.professionals
-  };
+
+async function saveData() {
+  if (!state.user || !state.salonId) {
+    showError(null, "É necessário iniciar sessão para guardar os dados.");
+    return;
+  }
 
   try {
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(data));
+    const batch = writeBatch(db);
+
+    const salonRef = doc(db, "saloes", state.salonId);
+
+    batch.set(salonRef, {
+      ...state.salon,
+      ownerUid: state.user.uid,
+      bufferMinutes: Number(state.bufferMinutes || 0)
+    }, { merge: true });
+
+    const collections = [
+      { name: "clientes", items: state.clients },
+      { name: "serviços", items: state.services },
+      { name: "profissionais", items: state.professionals },
+      { name: "agendamentos", items: state.appointments }
+    ];
+
+    for (const group of collections) {
+      const collectionRef = collection(
+        db,
+        "saloes",
+        state.salonId,
+        group.name
+      );
+
+      const snapshot = await getDocs(collectionRef);
+
+      const currentIds = new Set(
+        group.items.map(item => String(item.id))
+      );
+
+      snapshot.docs.forEach(item => {
+        if (!currentIds.has(item.id)) {
+          batch.delete(item.ref);
+        }
+      });
+
+      group.items.forEach(item => {
+        const { id, ...data } = item;
+
+        const itemRef = doc(collectionRef, String(id));
+
+        batch.set(itemRef, {
+          ...data,
+          ownerUid: state.user.uid
+        }, { merge: true });
+      });
+    }
+
+    await batch.commit();
+
+    console.log("EBS: dados guardados no Firebase.");
+
   } catch (error) {
-    showError(error, "Não foi possível guardar os dados neste navegador.");
+    console.error("Erro ao guardar no Firebase:", error);
+    showError(error, "Não foi possível guardar os dados no Firebase.");
   }
 }
+
 
 
 async function loadData() {
